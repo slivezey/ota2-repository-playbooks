@@ -19,6 +19,7 @@
   vars_files:
     - vars/default-vars.yml
     - vars/otm-repository-vars.yml
+    - "{{inventory_dir}}/host_vars/{{inventory_hostname}}.yml"
   vars:
     backup_timestamp: "{{ansible_date_time.year}}{{ansible_date_time.month}}{{ansible_date_time.day}}{{ansible_date_time.hour}}{{ansible_date_time.minute}}"
     svn_dumpfile: "repo-{{backup_timestamp}}.svn.dump"

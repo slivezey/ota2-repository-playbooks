@@ -19,6 +19,7 @@
   vars_files:
     - vars/default-vars.yml
     - vars/otm-repository-vars.yml
+    - "{{inventory_dir}}/host_vars/{{inventory_hostname}}.yml"
   tasks:
   - import_tasks: subtasks/validate.yml
   
