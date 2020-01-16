@@ -24,6 +24,10 @@
     stat:
       path: "/etc/init.d"
     register: initd_status
+  - name: Check for existence of the xinet.d service manager
+    stat:
+      path: "/etc/xinet.d"
+    register: xinetd_status
   - name: Check for existence of the firewalld manager
     stat:
       path: "/lib/firewalld"
@@ -50,6 +54,7 @@
       os_major_version: "{{ansible_distribution_major_version}}"
       systemd_installed: "{{systemd_status.stat.exists}}"
       initd_installed: "{{initd_status.stat.exists and not(systemd_status.stat.exists)}}"
+      xinetd_installed: "{{xinetd_status.stat.exists}}"
       firewalld_installed: "{{firewalld_status.stat.exists}}"
       ufw_installed: "{{ufw_status.stat.exists}}"
       iptables_installed: "{{iptables_status.stat.exists and not(firewalld_status.stat.exists or ufw_status.stat.exists)}}"

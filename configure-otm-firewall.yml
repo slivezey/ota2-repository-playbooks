@@ -1,0 +1,68 @@
+---
+#
+# Copyright (C) 2014 OpenTravel Alliance (info@opentravel.org)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+- name: --> Install and Configure Local Firewall Rules for the OTM Repository
+  hosts: "{{ target | default('localhost') }}"
+  vars_files:
+    - vars/default-vars.yml
+    - vars/otm-repository-vars.yml
+    - "{{inventory_dir}}/host_vars/{{inventory_hostname}}.yml"
+  tasks:
+  - import_tasks: subtasks/validate.yml
+  - import_tasks: subtasks/discover-system-facts.yml
+
+  - name: --> Configure Firewall Rules
+    block:
+    - name: Perform firewall configuration (firewalld)
+      firewalld:
+        port: "{{item}}"
+        permanent: yes
+        immediate: true
+        state: enabled
+      with_items:
+        - "{{tomcat_jmx_port}}/tcp"
+        - "{{manager_jmx_port}}/tcp"
+        - "{{agent_jmx_port}}/tcp"
+        - "{{nagios_nrpe_port}}/tcp"
+        - "80/tcp"
+      when: firewalld_installed
+    - name: Perform firewall configuration (ufw)
+      ufw:
+        rule: allow
+        port: "{{item}}"
+        proto: tcp
+        state: enabled
+      with_items:
+        - "{{tomcat_jmx_port}}"
+        - "{{manager_jmx_port}}"
+        - "{{agent_jmx_port}}"
+        - "{{nagios_nrpe_port}}"
+        - "80"
+      when: ufw_installed
+    - name: Perform firewall configuration (iptables)
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: "{{item}}"
+        jump: ACCEPT
+        action: insert
+      with_items:
+        - "{{tomcat_jmx_port}}"
+        - "{{manager_jmx_port}}"
+        - "{{agent_jmx_port}}"
+        - "{{nagios_nrpe_port}}"
+        - "80"
+      when: iptables_installed

@@ -1,0 +1,117 @@
+---
+#
+# Copyright (C) 2014 OpenTravel Alliance (info@opentravel.org)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+- name: --> Install Nagios-NRPE
+  block:
+  - name: --> Check for Existing Nagios-NRPE installation
+    stat: 
+      path: "/usr/local/nagios/bin/nrpe"
+    register: nagios_status
+  
+  - name: Creating local temp directory
+    file:
+      path: "{{controller_temp_dir}}"
+      state: directory
+    delegate_to: localhost
+    
+  - name: Download artifacts that will need to be uploaded later
+    get_url:
+      url: "{{nagiosnrpe_download_url}}"
+      dest: "{{controller_temp_dir}}/{{nagiosnrpe_archive}}.tar.gz"
+      validate_certs: false
+    delegate_to: localhost
+    
+  - name: Ensure the xinetd service is installed and running (CentOS/RHEL)
+    block:
+    - name: Ensure the xinetd package is installed (CentOS/RHEL)
+      package:
+        name: xinetd
+        state: latest
+    - name: Start the xinetd service (CentOS/RHEL)
+      service:
+        name: xinetd
+        enabled: yes
+        state: started
+      when: xinetd_installed
+    - name: Update system facts to reflect xinetd installation
+      set_fact:
+        xinetd_installed: true
+    when: (os_is_centos or os_is_rhel) and (systemd_installed == false)
+
+  - name: Upload Nagios-NRPE archive to remote host
+    unarchive:
+      src: "{{controller_temp_dir}}/{{nagiosnrpe_archive}}.tar.gz"
+      dest: "/tmp"
+  
+  - name: Install Nagios-NRPE
+    shell: |
+      ./configure --with-nrpe-user={{nagios_user}} --with-nrpe-group={{nagios_group}} --with-nagios-user={{nagios_user}} --with-nagios-group={{nagios_group}} --enable-command-args
+      make all
+      make install-groups-users
+      make install
+      make install-plugin
+      make install-daemon
+      make install-config
+      make install-inetd
+    args:
+      chdir: "/tmp/{{nagiosnrpe_archive}}"
+  
+  - name: Install Nagios-NRPE
+    shell: make install-init
+    ignore_errors: yes
+    args:
+      chdir: "/tmp/{{nagiosnrpe_archive}}"
+  
+  - name: Enable the NRPE service (xinetd only)
+    block:
+    - name: Remove the 'disable' value from the NRPE launch configuration
+      lineinfile:
+        dest: /etc/xinetd.d/nrpe
+        regexp: "^(\\s*)disable(.*)"
+        state: absent
+    - name: Insert 'disabled = no' into the NRPE launch configuration
+      lineinfile:
+        dest: /etc/xinetd.d/nrpe
+        line: "    disable         = no"
+        insertafter: "^{(.*)"
+        state: present
+    when: xinetd_installed
+    
+  - name: Add NRPE to the /etc/services file
+    lineinfile:
+      dest: /etc/services
+      line: "nrpe    {{nagios_nrpe_port}}/tcp"
+      state: present
+  
+  - name: Configure the NRPE service with required commands for remote monitoring
+    template:
+      src: "templates/nagios/nrpe.j2"
+      dest: "/usr/local/nagios/etc/nrpe.cfg"
+      mode: 0644
+  
+  - name: Start the NRPE service (Debian/Ubuntu)
+    service:
+      name: nrpe
+      enabled: yes
+      state: restarted
+    when: xinetd_installed == false
+      
+  - name: Restart the xinetd service (CentOS/RHEL)
+    service:
+      name: xinetd
+      enabled: yes
+      state: restarted
+    when: xinetd_installed

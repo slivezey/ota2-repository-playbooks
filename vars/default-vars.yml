@@ -33,3 +33,5 @@ uploads_dir: "{{base_dir}}/uploads"
 svn_port: "3690"
 svn_user: otmuser
 svn_password: otmpA55w0rd
+nagios_user: nagios
+nagios_group: nagios
