@@ -27,28 +27,6 @@
       state: directory
     delegate_to: localhost
     
-    # TODO: Determin if EPEL is really needed
-#  - name: Install EPEL release (RHEL 7+)
-#    block:
-#    - name: Download EPEL release to the controller
-#      get_url:
-#        url: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{os_major_version}}.noarch.rpm"
-#        dest: "{{controller_temp_dir}}/epel-release-latest-{{os_major_version}}.noarch.rpm"
-#        validate_certs: false
-#      delegate_to: localhost
-#    - name: Upload EPEL to the remote host
-#      copy:
-#        src: "{{controller_temp_dir}}/epel-release-latest-{{os_major_version}}.noarch.rpm"
-#        dest: "/tmp/epel-release-latest-{{os_major_version}}.noarch.rpm"
-#    - name: Install the EPEL release
-#      shell: |
-#        rpm -ihv epel-release-latest-{{os_major_version}}.noarch.rpm
-#        subscription-manager repos --enable=rhel-{{os_major_version}}-server-optional-rpms
-#      args:
-#        chdir: "/tmp"
-#        warn: no
-#    when: os_is_rhel and (os_major_version >= 7)
-    
   - name: Download artifacts that will need to be uploaded later
     get_url:
       url: "{{nagiosplugins_download_url}}"

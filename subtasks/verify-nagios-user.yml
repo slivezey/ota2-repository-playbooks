@@ -1,0 +1,46 @@
+---
+#
+# Copyright (C) 2014 OpenTravel Alliance (info@opentravel.org)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+- name: Verify that the Nagios user and group settings are valid
+  block:
+  - name: Get system properties for the Nagios user
+    getent:
+      database: passwd
+      key: "{{nagios_user}}"
+      fail_key: no
+  
+  - name: Get system properties for the Nagios group
+    getent:
+      database: group
+      key: "{{nagios_group}}"
+      fail_key: no
+  
+  - name: Check for existence of Nagios user and group
+    set_fact:
+      nagios_user_exists: "{{ getent_passwd.get( nagios_user ) is not none }}"
+      nagios_group_exists: "{{ getent_group.get( nagios_group ) is not none }}"
+  
+  - name: Get list of users assigned to Nagios group
+    set_fact:
+      nagios_user_assigned_to_group: "{{ (nagios_user in getent_group.get( nagios_group )[2].split(',')) or (nagios_user == nagios_group) }}"
+    when: nagios_group_exists
+    
+  - fail: msg="The Nagios user '{{nagios_user}}' does not exist."
+    when: not nagios_user_exists
+  - fail: msg="The Nagios group '{{nagios_group}}' does not exist."
+    when: not nagios_group_exists
+  - fail: msg="The Nagios user '{{nagios_user}}' is not assigned to the group '{{nagios_group}}'."
+    when: not nagios_user_assigned_to_group

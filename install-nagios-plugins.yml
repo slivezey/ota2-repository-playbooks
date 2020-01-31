@@ -22,6 +22,7 @@
     - "{{inventory_dir}}/host_vars/{{inventory_hostname}}.yml"
   tasks:
   - import_tasks: subtasks/validate.yml
+  - import_tasks: subtasks/verify-nagios-user.yml
   - import_tasks: subtasks/discover-system-facts.yml
   
   - import_tasks: subtasks/setup-nagios-plugins.yml

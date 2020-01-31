@@ -82,6 +82,11 @@
         dest: /etc/xinetd.d/nrpe
         regexp: "^(\\s*)disable(.*)"
         state: absent
+    - name: Remove the 'only_from' value from the NRPE launch configuration
+      lineinfile:
+        dest: /etc/xinetd.d/nrpe
+        regexp: "^(\\s*)only_from(.*)"
+        state: absent
     - name: Insert 'disabled = no' into the NRPE launch configuration
       lineinfile:
         dest: /etc/xinetd.d/nrpe

@@ -36,14 +36,21 @@
     - name: Perform firewall configuration (ufw)
       ufw:
         rule: allow
-        name: Apache
+        port: "80"
         state: enabled
       when: ufw_installed
     - name: Perform firewall configuration (iptables)
-      iptables:
-        chain: INPUT
-        protocol: tcp
-        destination_port: "80"
-        jump: ACCEPT
-        action: insert
+      block:
+      - name: Perform firewall configuration (iptables)
+        iptables:
+          chain: INPUT
+          protocol: tcp
+          destination_port: "80"
+          jump: ACCEPT
+          action: insert
+      - name: Save the updated firewall configuration
+        command: service iptables save
+        args:
+          warn: false
       when: iptables_installed
+      

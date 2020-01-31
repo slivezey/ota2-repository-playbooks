@@ -22,6 +22,7 @@
     - "{{inventory_dir}}/host_vars/{{inventory_hostname}}.yml"
   tasks:
   - import_tasks: subtasks/validate.yml
+  - import_tasks: subtasks/verify-nagios-user.yml
   - import_tasks: subtasks/discover-system-facts.yml
   
   - name: --> Download Artifacts to Controller
@@ -147,7 +148,7 @@
         ./configure --with-nagios-user={{nagios_user}} --with-nagios-group={{nagios_group}}
         make all
         make install-groups-users
-        usermod -a -G nagios apache
+        usermod -a -G {{nagios_group}} apache
         make install
         make install-daemoninit
         make install-commandmode
@@ -195,5 +196,6 @@
           state: touch
   
   - import_tasks: subtasks/setup-nagios-plugins.yml
+  - import_tasks: subtasks/setup-nagios-nrpe.yml
   - import_tasks: subtasks/setup-nagios-monitoring.yml
   

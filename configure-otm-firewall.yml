@@ -53,16 +53,22 @@
         - "80"
       when: ufw_installed
     - name: Perform firewall configuration (iptables)
-      iptables:
-        chain: INPUT
-        protocol: tcp
-        destination_port: "{{item}}"
-        jump: ACCEPT
-        action: insert
-      with_items:
-        - "{{tomcat_jmx_port}}"
-        - "{{manager_jmx_port}}"
-        - "{{agent_jmx_port}}"
-        - "{{nagios_nrpe_port}}"
-        - "80"
+      block:
+      - name: Perform firewall configuration (iptables)
+        iptables:
+          chain: INPUT
+          protocol: tcp
+          destination_port: "{{item}}"
+          jump: ACCEPT
+          action: insert
+        with_items:
+          - "{{tomcat_jmx_port}}"
+          - "{{manager_jmx_port}}"
+          - "{{agent_jmx_port}}"
+          - "{{nagios_nrpe_port}}"
+          - "80"
+      - name: Save the updated firewall configuration
+        command: service iptables save
+        args:
+          warn: false
       when: iptables_installed

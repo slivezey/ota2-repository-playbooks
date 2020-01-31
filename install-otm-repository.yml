@@ -22,6 +22,7 @@
     - "{{inventory_dir}}/host_vars/{{inventory_hostname}}.yml"
   tasks:
   - import_tasks: subtasks/validate.yml
+  - import_tasks: subtasks/verify-nagios-user.yml
   - import_tasks: subtasks/discover-system-facts.yml
   
   - name: --> Download Artifacts to Controller
@@ -243,6 +244,7 @@
   - name: --> Install the Nagios-Plugins Service
     block:
     - import_tasks: subtasks/setup-nagios-plugins.yml
+    - import_tasks: subtasks/setup-nagios-nrpe.yml
     when: nagios_status.stat.exists == false
     
   - import_tasks: subtasks/setup-httpd-proxy.yml
