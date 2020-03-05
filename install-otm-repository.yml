@@ -238,14 +238,14 @@
       when: initd_installed
     when: indexing_status.stat.exists == false
     
-  - debug:
-      msg: Nagios plugins appear to already be installed (skipping)
-    when: nagios_status.stat.exists == true
-  - name: --> Install the Nagios-Plugins Service
-    block:
-    - import_tasks: subtasks/setup-nagios-plugins.yml
-    - import_tasks: subtasks/setup-nagios-nrpe.yml
-    when: nagios_status.stat.exists == false
+#  - debug:
+#      msg: Nagios plugins appear to already be installed (skipping)
+#    when: nagios_status.stat.exists == true
+#  - name: --> Install the Nagios-Plugins Service
+#    block:
+#    - import_tasks: subtasks/setup-nagios-plugins.yml
+#    - import_tasks: subtasks/setup-nagios-nrpe.yml
+#    when: nagios_status.stat.exists == false
     
   - import_tasks: subtasks/setup-httpd-proxy.yml
   - import_tasks: subtasks/start-indexing.yml
