@@ -1,0 +1,46 @@
+---
+#
+# Copyright (C) 2014 OpenTravel Alliance (info@opentravel.org)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+- name: Verify that the OTM user and group settings are valid
+  block:
+  - name: Get system properties for the OTM user
+    getent:
+      database: passwd
+      key: "{{otm_user}}"
+      fail_key: no
+  
+  - name: Get system properties for the OTM group
+    getent:
+      database: group
+      key: "{{otm_group}}"
+      fail_key: no
+  
+  - name: Check for existence of OTM user and group
+    set_fact:
+      otm_user_exists: "{{ getent_passwd.get( otm_user ) is not none }}"
+      otm_group_exists: "{{ getent_group.get( otm_group ) is not none }}"
+  
+  - name: Get list of users assigned to OTM group
+    set_fact:
+      otm_user_assigned_to_group: "{{ (otm_user in getent_group.get( otm_group )[2].split(',')) or (otm_user == otm_group) }}"
+    when: otm_group_exists
+    
+  - fail: msg="The OTM user '{{otm_user}}' does not exist."
+    when: not otm_user_exists
+  - fail: msg="The OTM group '{{otm_group}}' does not exist."
+    when: not otm_group_exists
+  - fail: msg="The OTM user '{{otm_user}}' is not assigned to the group '{{otm_group}}'."
+    when: not otm_user_assigned_to_group

@@ -8,7 +8,7 @@ Type=forking
 ExecStart={{tomcat_dir}}/bin/startup.sh
 ExecStop={{tomcat_dir}}/bin/shutdown.sh
 WorkingDirectory={{tomcat_dir}}
-User=root
+User={{otm_user}}
 
 [Install]
 WantedBy=multi-user.target

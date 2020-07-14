@@ -18,28 +18,28 @@
   block:
   - name: Setup OS-specific configuration (Debian)
     set_fact:
-      package_name: apache2
+      http_package_name: apache2
       conf_directory: /etc/apache2/conf-enabled
       modules_directory: /usr/lib/apache2/modules
     when: os_is_debian
   
   - name: Setup OS-specific configuration (Ubuntu)
     set_fact:
-      package_name: apache2
+      http_package_name: apache2
       conf_directory: /etc/apache2/conf-enabled
       modules_directory: /lib/apache2/modules
     when: os_is_ubuntu
   
   - name: Setup OS-specific configuration (CentOS or RHEL)
     set_fact:
-      package_name: httpd
+      http_package_name: httpd
       conf_directory: /etc/httpd/conf.d
       modules_directory: /etc/httpd/modules
     when: os_is_centos or os_is_rhel
   
   - name: Install the apache2/httpd package
     package:
-      name: "{{package_name}}"
+      name: "{{http_package_name}}"
       state: latest
   
   - name: Install the configuration file for the OTM repository proxy
@@ -53,6 +53,6 @@
     
   - name: Restart the apache2 service
     service:
-      name: "{{package_name}}"
+      name: "{{http_package_name}}"
       state: restarted
     

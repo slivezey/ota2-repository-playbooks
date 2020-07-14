@@ -15,16 +15,34 @@
 # limitations under the License.
 #
 - import_tasks: subtasks/shutdown-svn.yml
+
 - name: Create SVN repository
-  command: "svnadmin create '{{svnrepo_dir}}'"
-  args:
-    creates: "{{svnrepo_dir}}/README.txt"
-- name: Configure SVN user account and permissions
+  block:
+  - name: Create SVN repository
+    command: "svnadmin create '{{svnrepo_dir}}'"
+    args:
+      creates: "{{svnrepo_dir}}/README.txt"
+  - name: Configure SVN user account and permissions
+    template:
+      src: "templates/svn/{{item.src}}"
+      dest: "{{svnrepo_dir}}/conf/{{item.dest}}"
+    with_items:
+    - { src: authz.j2, dest: authz }
+    - { src: passwd.j2, dest: passwd }
+    - { src: svnserve.j2, dest: svnserve.conf }
+  - name: Change ownership of SVN repository files
+    file:
+      path: "{{svnrepo_dir}}"
+      state: directory
+      recurse: yes
+      owner: "{{otm_user}}"
+      group: "{{otm_group}}"
+      
+- name: Install the SVN systemd service
   template:
-    src: "templates/svn/{{item.src}}"
-    dest: "{{svnrepo_dir}}/conf/{{item.dest}}"
-  with_items:
-  - { src: authz.j2, dest: authz }
-  - { src: passwd.j2, dest: passwd }
-  - { src: svnserve.j2, dest: svnserve.conf }
+    src: "templates/svn/svnserve.service.j2"
+    dest: "/lib/systemd/system/svnserve.service"
+    mode: 0644
+  when: systemd_installed
+
 - import_tasks: subtasks/start-svn.yml

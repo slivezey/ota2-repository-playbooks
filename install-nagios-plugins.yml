@@ -25,6 +25,11 @@
   - import_tasks: subtasks/verify-nagios-user.yml
   - import_tasks: subtasks/discover-system-facts.yml
   
+  - name: --> Verify installation is running as root user
+    set_fact:
+      require_user: root
+  - import_tasks: subtasks/check-current-user.yml
+  
   - import_tasks: subtasks/setup-nagios-plugins.yml
   - import_tasks: subtasks/setup-nagios-nrpe.yml
   

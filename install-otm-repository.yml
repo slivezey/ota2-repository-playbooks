@@ -22,8 +22,14 @@
     - "{{inventory_dir}}/host_vars/{{inventory_hostname}}.yml"
   tasks:
   - import_tasks: subtasks/validate.yml
+  - import_tasks: subtasks/verify-otm-user.yml
   - import_tasks: subtasks/verify-nagios-user.yml
   - import_tasks: subtasks/discover-system-facts.yml
+  
+  - name: --> Verify installation is running as root user
+    set_fact:
+      require_user: root
+  - import_tasks: subtasks/check-current-user.yml
   
   - name: --> Download Artifacts to Controller
     block:
@@ -37,6 +43,7 @@
         url: "{{item.url}}"
         dest: "{{controller_temp_dir}}/{{item.file}}"
         validate_certs: false
+        timeout: 30
       with_items:
         - { url: "{{tomcat_download_url}}", file: "{{tomcat_archive}}.zip" }
         - { url: "{{repo_service_download_url}}", file: "ROOT.war" }
@@ -59,7 +66,21 @@
         - "{{backups_dir}}"
         - "{{uploads_dir}}"
         - "{{uploads_dir}}/repo_tmp"
-  
+    - name: Change folder ownership to the OTM user
+      file:
+        path: "{{item}}"
+        state: directory
+        recurse: yes
+        owner: "{{otm_user}}"
+        group: "{{otm_group}}"
+      with_items:
+        - "{{base_dir}}"
+        - "{{indexsvc_dir}}"
+        - "{{svnrepo_dir}}"
+        - "{{searchindex_dir}}"
+        - "{{backups_dir}}"
+        - "{{uploads_dir}}"
+
   - name: --> Check for Existence of Major Components
     block:
     - name: Check for Java 1.8 installation
@@ -81,53 +102,59 @@
       stat: 
         path: "/usr/local/nagios"
       register: nagios_status
-    
+
   - debug:
       msg: The Subversion repository appears to already be created (skipping)
     when: svn_status.stat.exists == true
   - name: --> Install and Configure SVN Server
     block:
+    - name: Install Subversion package
+      package:
+        name: subversion
+        state: latest
+      when: remote_svn_url is undefined
+    - name: Disable SELinux (if necessary)
+      selinux:
+        state: disabled
+      when: selinux_installed
     - name: Install and configure local SVN repository
       block:
-      - name: Install Subversion package
-        package:
-          name: subversion
-          state: latest
       - import_tasks: subtasks/init-svn-repository.yml
-      when: remote_svn_url is undefined
-    - name: Determin the Subversion URL to use in subsequent tasks
-      set_fact:
-        svn_url: "{{ remote_svn_url if remote_svn_url is defined else 'svn://localhost:{{svn_port}}'}}"
-    - name: Copy the initial OTM repository content
-      template:
-        src: "templates/otm-repo/{{item.src}}"
-        dest: "{{uploads_dir}}/repo_tmp/{{item.dest}}"
-      with_items:
-      - { src: auth.j2, dest: auth.xml }
-      - { src: group-assignments.j2, dest: group-assignments.xml }
-      - { src: repository-metadata.j2, dest: repository-metadata.xml }
-      - { src: repository-users.j2, dest: repository-users.xml }
-    - name: Copy the script that will create the initial root namespace
-      template:
-        src: "templates/otm-repo/{{item.src}}"
-        dest: "{{uploads_dir}}/{{item.dest}}"
-        mode: 0754
-      with_items:
-      - { src: create-nsid.j2, dest: create-nsid.sh }
-    - name: Execute the script to create the initial root namespace
-      command: ./create-nsid.sh
-      args:
-        chdir: "{{uploads_dir}}"
-    - name: Import the initial content into the SVN repository
-      shell: "svn import {{uploads_dir}}/repo_tmp {{svn_url}} --username {{svn_user}} --password {{svn_password}} --no-auth-cache -m 'Initial import'"
-      args:
-        warn: false
-    - name: Checkout to managed repository location
-      subversion:
-        repo: "{{svn_url}}"
-        dest: "{{otmrepo_dir}}"
-    when: svn_status.stat.exists == false
-    
+      - name: Determine the Subversion URL to use in subsequent tasks
+        set_fact:
+          svn_url: "{{ remote_svn_url if remote_svn_url is defined else 'svn://localhost:{{svn_port}}'}}"
+      - name: Copy the initial OTM repository content
+        template:
+          src: "templates/otm-repo/{{item.src}}"
+          dest: "{{uploads_dir}}/repo_tmp/{{item.dest}}"
+        with_items:
+        - { src: auth.j2, dest: auth.xml }
+        - { src: group-assignments.j2, dest: group-assignments.xml }
+        - { src: repository-metadata.j2, dest: repository-metadata.xml }
+        - { src: repository-users.j2, dest: repository-users.xml }
+      - name: Copy the script that will create the initial root namespace
+        template:
+          src: "templates/otm-repo/{{item.src}}"
+          dest: "{{uploads_dir}}/{{item.dest}}"
+          mode: 0754
+        with_items:
+        - { src: create-nsid.j2, dest: create-nsid.sh }
+      - name: Execute the script to create the initial root namespace
+        command: ./create-nsid.sh
+        args:
+          chdir: "{{uploads_dir}}"
+      - name: Import the initial content into the SVN repository
+        shell: "svn import {{uploads_dir}}/repo_tmp {{svn_url}} --username {{svn_user}} --password {{svn_password}} --no-auth-cache -m 'Initial import'"
+        args:
+          warn: false
+      - name: Checkout to managed repository location
+        subversion:
+          repo: "{{svn_url}}"
+          dest: "{{otmrepo_dir}}"
+      when: svn_status.stat.exists == false
+      become: true
+      become_user: "{{otm_user}}"
+
   - debug:
       msg: The Tomcat server appears to already be created (skipping)
     when: tomcat_status.stat.exists == true
@@ -238,6 +265,30 @@
       when: initd_installed
     when: indexing_status.stat.exists == false
     
+  - name: Change ownership of all installed components to the OTM user
+    file:
+      path: "{{item}}"
+      state: directory
+      recurse: yes
+      owner: "{{otm_user}}"
+      group: "{{otm_group}}"
+    with_items:
+      - "{{base_dir}}"
+      - "{{tomcat_dir}}"
+      - "{{otmrepo_dir}}"
+      - "{{svnrepo_dir}}"
+      - "{{indexsvc_dir}}"
+      - "{{searchindex_dir}}"
+        
+  - import_tasks: subtasks/setup-httpd-proxy.yml
+  
+  - name: Install the ota2-indexing init.d service
+    template:
+      src: "templates/otm-config/otmsudoers.j2"
+      dest: "/etc/sudoers.d/otmsudoers"
+      mode: 0750
+    when: systemd_installed
+      
   - debug:
       msg: Nagios plugins appear to already be installed (skipping)
     when: nagios_status.stat.exists == true
@@ -247,7 +298,6 @@
     - import_tasks: subtasks/setup-nagios-nrpe.yml
     when: nagios_status.stat.exists == false
     
-  - import_tasks: subtasks/setup-httpd-proxy.yml
   - import_tasks: subtasks/start-indexing.yml
   - import_tasks: subtasks/start-tomcat.yml
   - import_tasks: subtasks/cleanup.yml

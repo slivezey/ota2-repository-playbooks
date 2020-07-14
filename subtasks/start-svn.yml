@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-- name: --> Start the local SVN Daemon
+- name: --> Start the local SVN Daemon (shell)
   block:
   - name: Check if a Subversion server is running
     shell: pgrep 'svnserve'
@@ -24,4 +24,14 @@
   - name: --> Start the SVN daemon process
     command: "svnserve -d --listen-port {{svn_port}} -r '{{svnrepo_dir}}'"
     when: svnserve_status.stdout == ''
-  when: remote_svn_url is undefined
+  when: remote_svn_url is undefined and systemd_installed == false
+  become: true
+  become_user: "{{otm_user}}"
+
+- name: Start SVN server process (systemd)
+  service:
+    name: svnserve
+    state: started
+  when: remote_svn_url is undefined and systemd_installed
+  become: yes
+  

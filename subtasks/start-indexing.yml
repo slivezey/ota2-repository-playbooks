@@ -18,6 +18,7 @@
   service:
     name: ota2-indexing
     state: started
+  become: yes
 - name: Wait for service startup to complete
   wait_for:
     port: "{{indexing_activemq_port}}"

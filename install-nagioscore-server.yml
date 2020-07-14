@@ -25,6 +25,11 @@
   - import_tasks: subtasks/verify-nagios-user.yml
   - import_tasks: subtasks/discover-system-facts.yml
   
+  - name: --> Verify installation is running as the nagios_user
+    set_fact:
+      require_user: root
+  - import_tasks: subtasks/check-current-user.yml
+  
   - name: --> Download Artifacts to Controller
     block:
     - name: Creating local temp directory
@@ -63,8 +68,9 @@
       when: os_is_centos
     - name: Setup OS-specific configuration (RHEL)
       block:
-      - name: Enable optional server packages (RHEL)
+      - name: Enable optional server packages (RHEL7 and under)
         command: "subscription-manager repos --enable rhel-{{os_major_version}}-server-optional-rpms"
+        when: os_major_version|int <= 7
       - name: Setup OS-specific configuration (RHEL)  
         package:
           name:

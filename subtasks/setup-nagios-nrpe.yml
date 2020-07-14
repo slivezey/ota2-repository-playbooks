@@ -32,6 +32,7 @@
       url: "{{nagiosnrpe_download_url}}"
       dest: "{{controller_temp_dir}}/{{nagiosnrpe_archive}}.tar.gz"
       validate_certs: false
+      timeout: 30
     delegate_to: localhost
     
   - name: Ensure the xinetd service is installed and running (CentOS/RHEL)

@@ -20,6 +20,7 @@
     service:
       name: ota2-indexing
       state: stopped
+    become: yes
   - name: Wait for indexing service shutdown to complete
     wait_for:
       port: "{{indexing_activemq_port}}"
@@ -38,3 +39,4 @@
     ignore_errors: true
     with_items: "{{indexing_status.stdout_lines}}"
     when: indexing_status.stdout != ""
+    become: yes

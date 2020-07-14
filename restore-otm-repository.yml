@@ -31,6 +31,13 @@
     svn_url: "svn://localhost:{{svn_port}}"
   tasks:
   - import_tasks: subtasks/validate.yml
+  - import_tasks: subtasks/discover-system-facts.yml
+  
+  - name: --> Verify installation is running as the otm_user
+    set_fact:
+      require_user: "{{otm_user}}"
+  - import_tasks: subtasks/check-current-user.yml
+  
   - import_tasks: subtasks/shutdown-tomcat.yml
   - import_tasks: subtasks/shutdown-indexing.yml
   

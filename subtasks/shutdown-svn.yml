@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-- name: --> Shutdown the local SVN Daemon
+- name: --> Shutdown the local SVN Daemon (shell)
   block:
   - name: Check if a Subversion server is running
     shell: "pgrep svnserve"
@@ -37,4 +37,13 @@
     ignore_errors: true
     with_items: "{{svnserve_status.stdout_lines}}"
     when: svnserve_status.stdout != ""
-  when: remote_svn_url is undefined
+  when: remote_svn_url is undefined and systemd_installed == false
+  become: true
+  become_user: "{{otm_user}}"
+  
+- name: Shutdown SVN server process (systemd)
+  service:
+    name: svnserve
+    state: stopped
+  when: remote_svn_url is undefined and systemd_installed
+  become: yes

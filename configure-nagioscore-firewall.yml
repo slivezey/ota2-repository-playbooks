@@ -24,6 +24,16 @@
   - import_tasks: subtasks/validate.yml
   - import_tasks: subtasks/discover-system-facts.yml
 
+  - name: --> Verify installation is running as the otm_user
+    set_fact:
+      require_user: root
+  - import_tasks: subtasks/check-current-user.yml
+  
+  - name: --> Verify installation is running as the root user
+    set_fact:
+      require_user: root
+  - import_tasks: subtasks/check-current-user.yml
+  
   - name: --> Configure Firewall Rules
     block:
     - name: Perform firewall configuration (firewalld)

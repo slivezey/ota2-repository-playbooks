@@ -8,7 +8,7 @@ Type=forking
 ExecStart={{indexsvc_dir}}/startup.sh
 ExecStop={{indexsvc_dir}}/shutdown.sh
 WorkingDirectory={{indexsvc_dir}}
-User=root
+User={{otm_user}}
 
 [Install]
 WantedBy=multi-user.target

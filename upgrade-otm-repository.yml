@@ -25,6 +25,12 @@
     svn_dumpfile: "repo-{{backup_timestamp}}.svn.dump"
   tasks:
   - import_tasks: subtasks/validate.yml
+  
+  - name: --> Verify installation is running as the otm_user
+    set_fact:
+      require_user: "{{otm_user}}"
+  - import_tasks: subtasks/check-current-user.yml
+  
   - import_tasks: subtasks/backup-repository.yml
 
   - name: --> Download Artifacts to Controller

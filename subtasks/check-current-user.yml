@@ -14,11 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-- name: --> Start OTM Repository Tomcat Server
-  service:
-    name: ota2-tomcat
-    state: started
-  become: yes
-- name: Wait for server startup to complete
-  wait_for:
-    port: "{{tomcat_port}}"
+- name: Get identity of the remote user
+  command: whoami
+  register: whoami
+- name: Assign a fact with the remote user ID
+  set_fact:
+    remote_user: "{{ whoami.stdout }}"
+- name: Verify remote user identity
+  fail:
+    msg: "Invalid remote user - must be executed as '{{require_user}}' (current user is '{{remote_user}}')"
+  when: remote_user != require_user

@@ -22,7 +22,13 @@
     - "{{inventory_dir}}/host_vars/{{inventory_hostname}}.yml"
   tasks:
   - import_tasks: subtasks/validate.yml
+  - import_tasks: subtasks/discover-system-facts.yml
 
+  - name: --> Verify installation is running as the otm_user
+    set_fact:
+      require_user: "{{otm_user}}"
+  - import_tasks: subtasks/check-current-user.yml
+  
   - name: --> Verify existence of rollback archives
     block:
     - name: Check for existence of the OTM Repository Web Service rollback archive

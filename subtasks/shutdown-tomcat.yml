@@ -20,6 +20,7 @@
     service:
       name: ota2-tomcat
       state: stopped
+    become: yes
   - name: Wait for service shutdown to complete
     wait_for:
       port: "{{tomcat_port}}"
@@ -39,3 +40,4 @@
     ignore_errors: true
     with_items: "{{tomcat_status.stdout_lines}}"
     when: tomcat_status.stdout != ""
+    become: yes

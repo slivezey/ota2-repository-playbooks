@@ -1,0 +1,14 @@
+[Unit]
+Description=Subversion Protocol Daemon
+After=syslog.target network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/svnserve -d --listen-port {{svn_port}} -r {{svnrepo_dir}}
+User={{otm_user}}
+Group={{otm_group}}
+KillMode=control-group
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

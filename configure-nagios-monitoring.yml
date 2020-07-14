@@ -20,5 +20,11 @@
     - vars/default-vars.yml
   tasks:
   - import_tasks: subtasks/validate.yml
+  
+  - name: --> Verify installation is running as the nagios_user
+    set_fact:
+      require_user: "{{nagios_user}}"
+  - import_tasks: subtasks/check-current-user.yml
+  
   - import_tasks: subtasks/setup-nagios-monitoring.yml
   

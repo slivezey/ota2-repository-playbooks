@@ -1,0 +1,24 @@
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl start ota2-tomcat
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl stop ota2-tomcat
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl restart ota2-tomcat
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl status ota2-tomcat
+
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl start ota2-indexing
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl stop ota2-indexing
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl restart ota2-indexing
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl status ota2-indexing
+
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl start svnserve
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl stop svnserve
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl restart svnserve
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl status svnserve
+
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl start {{http_package_name}}
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl stop {{http_package_name}}
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl restart {{http_package_name}}
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl status {{http_package_name}}
+
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl start nrpe
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl stop nrpe
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl restart nrpe
+{{otm_user}} ALL=(root)      NOPASSWD: /bin/systemctl status nrpe
