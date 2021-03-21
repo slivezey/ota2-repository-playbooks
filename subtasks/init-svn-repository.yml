@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-- import_tasks: subtasks/shutdown-svn.yml
-
 - name: Create SVN repository
   block:
   - name: Create SVN repository
