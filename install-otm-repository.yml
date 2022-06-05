@@ -83,13 +83,17 @@
 
   - name: --> Check for Existence of Major Components
     block:
-    - name: Check for Java 1.8 installation
+    - name: Check for Java 17 installation
       shell: "java -version 2>&1 >/dev/null | grep 'java version' | awk '{print $3}'"
       register: java_status
     - name: Check for existing SVN repository checkout
       stat: 
         path: "{{otmrepo_dir}}/.svn"
       register: svn_status
+    - name: Check for RabbitMQ installation
+      stat: 
+        path: "/usr/sbin/rabbitmq-server"
+      register: rabbitmq_status
     - name: Check for existing Tomcat OTM repository configuration
       stat: 
         path: "{{tomcat_dir}}/conf/ota2-repository-config.xml"
@@ -143,8 +147,16 @@
         command: ./create-nsid.sh
         args:
           chdir: "{{uploads_dir}}"
+      - name: Store the SVN credentials into the user's working directory (root)
+        shell: "svn ls {{svn_url}} --username {{svn_user}} --password {{svn_password}} --config-option='servers:global:store-plaintext-passwords=yes' --config-option='servers:global:store-passwords=yes'"
+        args:
+          warn: false
+      - name: Store the SVN credentials into the user's working directory (otm user)
+        shell: "su -c \"svn ls {{svn_url}} --username {{svn_user}} --password {{svn_password}} --config-option='servers:global:store-plaintext-passwords=yes' --config-option='servers:global:store-passwords=yes'\" {{otm_user}}"
+        args:
+          warn: false
       - name: Import the initial content into the SVN repository
-        shell: "svn import {{uploads_dir}}/repo_tmp {{svn_url}} --username {{svn_user}} --password {{svn_password}} --no-auth-cache -m 'Initial import'"
+        shell: "svn import {{uploads_dir}}/repo_tmp {{svn_url}} -m 'Initial import'"
         args:
           warn: false
       - name: Checkout to managed repository location
@@ -156,25 +168,47 @@
       become_user: "{{otm_user}}"
 
   - debug:
+      msg: RabbitMQ appears to already be installed (skipping)
+    when: rabbitmq_status.stat.exists == true
+  - name: --> Install and Configure RabbitMQ Server
+    block:
+    - name: Install package manager repositories for Erlang and RabbitMQ (RHEL)
+      block:
+      - name: Download and install the RabbitMQ repository (RHEL)
+        shell: "curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | bash"
+      - name: Download Erlang repository (RHEL)
+        command: "wget https://github.com/rabbitmq/erlang-rpm/releases/download/v23.2.7/erlang-23.2.7-1.el7.x86_64.rpm"
+        args:
+          chdir: "{{uploads_dir}}"
+      - name: Install the Erlang repository (RHEL)
+        command: "yum install -y {{uploads_dir}}/erlang-23.2.7-1.el7.x86_64.rpm"
+      when: os_is_rhel
+    - name: Make sure RabbitMQ is installed
+      package:
+        name: rabbitmq-server
+        state: latest
+    when: rabbitmq_status.stat.exists == false
+  
+  - debug:
       msg: The Tomcat server appears to already be created (skipping)
     when: tomcat_status.stat.exists == true
   - name: --> Install and Configure Tomcat Server
     block:
     - block:
-      - name: Ensure Java 1.8 package is available (Ubuntu only)
+      - name: Ensure Java 17 package is available (Ubuntu only)
         command: "add-apt-repository -y ppa:openjdk-r/ppa"
         when: os_is_ubuntu
-      - name: Make sure Java 1.8 is installed (Debian or Ubuntu)
+      - name: Make sure Java 17 is installed (Debian or Ubuntu)
         package:
-          name: openjdk-8-jdk
+          name: openjdk-17-jdk
           state: latest
         when: os_is_debian or os_is_ubuntu
-      - name: Make sure Java 1.8 is installed (CentOS or RHEL)
+      - name: Make sure Java 17 is installed (RHEL)
         package:
-          name: java-1.8.0-openjdk-devel
+          name: java-17-openjdk
           state: latest
-        when: os_is_centos or os_is_rhel
-      when: java_status.stdout is not search("1.8")
+        when: os_is_rhel
+      when: java_status.stdout is not search("17")
     - name: Upload Tomcat distribution to remote host
       unarchive:
         src: "{{controller_temp_dir}}/{{tomcat_archive}}.zip"
@@ -251,6 +285,8 @@
         dest: "{{indexsvc_dir}}/conf/{{item.dest}}"
       with_items:
       - { src: indexing-service.j2, dest: indexing-service.properties }
+      - { src: log4j2-manager.j2, dest: log4j2-manager.properties }
+      - { src: log4j2-agent.j2, dest: log4j2-agent.properties }
     - name: Install the ota2-indexing systemd service
       template:
         src: "templates/indexing-config/ota2-indexing-systemd.j2"
@@ -298,6 +334,7 @@
     - import_tasks: subtasks/setup-nagios-nrpe.yml
     when: nagios_status.stat.exists == false
     
+  - import_tasks: subtasks/start-rabbitmq.yml
   - import_tasks: subtasks/start-indexing.yml
   - import_tasks: subtasks/start-tomcat.yml
   - import_tasks: subtasks/cleanup.yml

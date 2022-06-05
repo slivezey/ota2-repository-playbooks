@@ -30,12 +30,12 @@
       modules_directory: /lib/apache2/modules
     when: os_is_ubuntu
   
-  - name: Setup OS-specific configuration (CentOS or RHEL)
+  - name: Setup OS-specific configuration (RHEL)
     set_fact:
       http_package_name: httpd
       conf_directory: /etc/httpd/conf.d
       modules_directory: /etc/httpd/modules
-    when: os_is_centos or os_is_rhel
+    when: os_is_rhel
   
   - name: Install the apache2/httpd package
     package:
@@ -47,9 +47,9 @@
       src: "templates/proxy-config/otm-proxy.j2"
       dest: "{{conf_directory}}/otm-proxy.conf"
   
-  - name: Enable httpd service to open outbound connections (CentOS/RHEL)
+  - name: Enable httpd service to open outbound connections (RHEL)
     command: /usr/sbin/setsebool -P httpd_can_network_connect 1
-    when: os_is_centos or os_is_rhel
+    when: os_is_rhel
     
   - name: Restart the apache2 service
     service:

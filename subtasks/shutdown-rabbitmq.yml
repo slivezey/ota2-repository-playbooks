@@ -14,29 +14,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-- name: --> Shutdown OTM Repository Indexing Service
+- name: --> Shutdown RabbitMQ Server
   block:
-  - name: Shutdown ota2-indexing-service process
+  - name: Shutdown RabbitMQ server process
     service:
-      name: ota2-indexing
+      name: rabbitmq-server
       state: stopped
     become: yes
-  - name: Wait for indexing service shutdown to complete
+  - name: Wait for service shutdown to complete
     wait_for:
-      port: "{{manager_jmx_port}}"
+      port: "{{rabbitmq_port}}"
       state: stopped
       timeout: 60
-  - name: Check that indexing service process has shut down
-    command: "pgrep -f ota2-indexing"
+      delay: 10
+  - name: Check that RabbitMQ process has shut down
+    command: "pgrep -f rabbitmq"
     ignore_errors: true
-    register: indexing_status
+    register: rabbitmq_status
   - name: Wait for normal shutdown
     pause:
       seconds: 10
-    when: indexing_status.stdout != ""
-  - name: Forcibly kill indexing service process (if necessary)
+    when: rabbitmq_status.stdout != ""
+  - name: Forcibly kill RabbitMQ process (if necessary)
     command: "kill {{item}}"
     ignore_errors: true
-    with_items: "{{indexing_status.stdout_lines}}"
-    when: indexing_status.stdout != ""
+    with_items: "{{rabbitmq_status.stdout_lines}}"
+    when: rabbitmq_status.stdout != ""
     become: yes

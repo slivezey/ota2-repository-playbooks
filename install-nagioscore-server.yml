@@ -49,23 +49,6 @@
   
   - name: --> Install Required Packages
     block:
-    - name: Setup OS-specific configuration (CentOS)
-      package:
-        name:
-          - gcc
-          - glibc
-          - glibc-common
-          - wget
-          - unzip
-          - httpd
-          - php
-          - gd
-          - gd-devel
-          - perl
-          - postfix
-          - java-1.8.0-openjdk-devel
-        state: latest
-      when: os_is_centos
     - name: Setup OS-specific configuration (RHEL)
       block:
       - name: Enable optional server packages (RHEL7 and under)
@@ -149,7 +132,7 @@
       args:
         chdir: "/tmp/{{nagioscore_archive}}"
       when: os_is_debian or os_is_ubuntu
-    - name: Perform installation (CentOS/RHEL)
+    - name: Perform installation (RHEL)
       shell: |
         ./configure --with-nagios-user={{nagios_user}} --with-nagios-group={{nagios_group}}
         make all
@@ -163,7 +146,7 @@
         htpasswd -b -c /usr/local/nagios/etc/htpasswd.users nagiosadmin admin
       args:
         chdir: "/tmp/{{nagioscore_archive}}"
-      when: os_is_centos or os_is_rhel
+      when: os_is_rhel
 
   - name: Install the Nagios check_jmx plugin
     block:
@@ -179,13 +162,13 @@
         
   - name: --> Restart Apache and Nagios Services
     block:
-      - name: Restart the httpd service (CentOS/RHEL)
+      - name: Restart the httpd service (RHEL)
         service:
           name: httpd
           enabled: yes
           state: restarted
-        when: os_is_centos or os_is_rhel
-      - name: Restart the apache2 service (CentOS/RHEL)
+        when: os_is_rhel
+      - name: Restart the apache2 service (RHEL)
         service:
           name: apache2
           enabled: yes

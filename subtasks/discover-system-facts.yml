@@ -47,7 +47,6 @@
   
   - name: Configure additional remote system facts
     set_fact:
-      os_is_centos: "{{ansible_distribution == 'CentOS'}}"
       os_is_rhel: "{{ansible_distribution == 'RedHat'}}"
       os_is_debian: "{{ansible_distribution == 'Debian'}}"
       os_is_ubuntu: "{{ansible_distribution == 'Ubuntu'}}"

@@ -1,0 +1,47 @@
+- name: --> Install and Configure OTM Repository Server
+  hosts: "{{ target | default('localhost') }}"
+  vars_files:
+    - vars/default-vars.yml
+    - vars/otm-repository-vars.yml
+    - "{{inventory_dir}}/host_vars/{{inventory_hostname}}.yml"
+  tasks:
+  - import_tasks: subtasks/discover-system-facts.yml
+  
+  - name: Creating missing folders
+    file:
+      path: "{{item}}"
+      state: directory
+    with_items:
+      - "{{uploads_dir}}"
+  - name: Check for RabbitMQ installation
+    stat: 
+      path: "/usr/sbin/rabbitmq-server"
+    register: rabbitmq_status
+  
+  - debug:
+      msg: RabbitMQ appears to already be installed (skipping)
+    when: rabbitmq_status.stat.exists == true
+  - name: --> Install and Configure RabbitMQ Server
+    block:
+    - name: Install package manager repositories for Erlang and RabbitMQ (RHEL)
+      block:
+      - name: Download and install the RabbitMQ repository (RHEL)
+        shell: "curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | bash"
+      - name: Download Erlang repository (RHEL)
+        command: "wget https://github.com/rabbitmq/erlang-rpm/releases/download/v23.2.7/erlang-23.2.7-1.el7.x86_64.rpm"
+        args:
+          chdir: "{{uploads_dir}}"
+      - name: Install the Erlang repository (RHEL)
+        command: "yum install -y {{uploads_dir}}/erlang-23.2.7-1.el7.x86_64.rpm"
+      when: os_is_rhel
+    - name: Make sure RabbitMQ is installed
+      package:
+        name: rabbitmq-server
+        state: latest
+    when: rabbitmq_status.stat.exists == false
+  
+  - name: Start RabbitMQ process
+    include: subtasks/start-rabbitmq.yml
+    
+  - name: Start RabbitMQ process
+    include: subtasks/shutdown-rabbitmq.yml

@@ -13,15 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-activemq.connector.port={{indexing_activemq_port}}
-activemq.data=${user.dir}/data/kahadb
+rabbitmq.connector.port={{rabbitmq_port}}
 
 org.opentravel.index.manager.jmx.port={{manager_jmx_port}}
 
 org.opentravel.index.agent.repositoryLocation={{otmrepo_dir}}
 org.opentravel.index.agent.searchIndexLocation={{searchindex_dir}}
-org.opentravel.index.agent.jvmOpts=-Xms256M -Xmx1024M -XX:MaxPermSize=256M
+org.opentravel.index.agent.jvmOpts=-Xms256M -Xmx1024M
 
-org.opentravel.index.jms.queueName=otm.indexing.jobQueue
+org.opentravel.index.jms.requestQueueName=otm.indexing.jobRequestQueue
+org.opentravel.index.jms.responseQueueName=otm.indexing.jobResponseQueue
 org.opentravel.index.jms.sessionCacheSize=10
 org.opentravel.index.jms.receiveTimeout=500

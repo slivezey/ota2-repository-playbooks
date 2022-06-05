@@ -14,12 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-- name: --> Start OTM Repository Indexing Service
+- name: --> Start RabbitMQ Server
   service:
-    name: ota2-indexing
+    name: rabbitmq-server
     state: started
   become: yes
-- name: Wait for service startup to complete
+- name: Wait for server startup to complete
   wait_for:
-    port: "{{agent_jmx_port}}"
-    timeout: 10
+    port: "{{rabbitmq_port}}"

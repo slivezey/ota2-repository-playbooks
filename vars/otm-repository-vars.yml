@@ -18,11 +18,13 @@
 #
 # Common variables for most OTM repository installations
 #
-tomcat_archive: apache-tomcat-8.5.40
-tomcat_download_url: "https://archive.apache.org/dist/tomcat/tomcat-8/v8.5.40/bin/{{tomcat_archive}}.zip"
+tomcat_archive: apache-tomcat-9.0.63
+tomcat_download_url: "https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.63/bin/{{tomcat_archive}}.zip"
 repo_base_download_url: "https://github.com/OpenTravel/OTM-DE-Compiler/releases/latest/download"
-repo_service_download_url: "{{repo_base_download_url}}/ota2-repository-service.war"
-index_service_download_url: "{{repo_base_download_url}}/ota2-indexing-service.zip"
+#repo_service_download_url: "{{repo_base_download_url}}/ota2-repository-service.war"
+#index_service_download_url: "{{repo_base_download_url}}/ota2-indexing-service.zip"
+repo_service_download_url: file:///Users/livezeysm/Software/codebases/OTM-DE-Compiler/ota2-repository-service/target/ota2-repository-service.war
+index_service_download_url: file:///Users/livezeysm/Software/codebases/OTM-DE-Compiler/ota2-indexing-service/target/ota2-indexing-service-5.0-SNAPSHOT-bin.zip
 
 nagioscore_archive: nagios-4.4.5
 nagioscore_download_url: "https://github.com/NagiosEnterprises/nagioscore/releases/download/{{nagioscore_archive}}/{{nagioscore_archive}}.tar.gz"

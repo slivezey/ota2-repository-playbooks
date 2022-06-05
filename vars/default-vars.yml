@@ -21,7 +21,6 @@ tomcat_jmx_port: "11097"
 manager_jmx_port: "11098"
 agent_jmx_port: "11099"
 nagios_nrpe_port: "5666"
-indexing_activemq_port: "61616"
 indexsvc_dir: "{{base_dir}}/ota2-indexing-service"
 svnrepo_dir: "{{base_dir}}/otm/otm_svnrepo"
 otmrepo_dir: "{{base_dir}}/otm/otm-db/repository"
@@ -33,6 +32,7 @@ uploads_dir: "{{base_dir}}/uploads"
 svn_port: "3690"
 svn_user: otmuser
 svn_password: otmpA55w0rd
+rabbitmq_port: "5672"
 otm_user: otm
 otm_group: otm
 nagios_user: nagios

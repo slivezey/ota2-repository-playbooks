@@ -31,5 +31,6 @@
   
   - import_tasks: subtasks/shutdown-tomcat.yml
   - import_tasks: subtasks/shutdown-indexing.yml
+  - import_tasks: subtasks/shutdown-rabbitmq.yml
   - import_tasks: subtasks/shutdown-svn.yml
   

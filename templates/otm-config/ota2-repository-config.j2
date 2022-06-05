@@ -4,7 +4,7 @@
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd">
 	
 	<bean id="developmentRepository" class="java.lang.Boolean" scope="singleton">
-		<constructor-arg value="true" />
+		<constructor-arg value="false" />
 	</bean>
 	
 	<bean id="repositoryLocation" class="java.io.File" scope="singleton">
@@ -39,7 +39,7 @@
 		 Uncomment for SVN persistence of repository files.
 		-->
 		<constructor-arg>
-			<bean class="org.opentravel.schemacompiler.repository.SVNRepositoryFileManager">
+			<bean class="org.opentravel.repocommon.repository.SVNRepositoryFileManager">
 				<constructor-arg ref="repositoryLocation" />
 				<constructor-arg ref="svnConfigFolder" />
 				<constructor-arg ref="svnCredentialsFile" />
@@ -53,7 +53,7 @@
 		Provides all authentication and authorization services required for secure operation of the OTA2.0
 		repository.
 	-->
-	<bean id="securityManager" class="org.opentravel.schemacompiler.security.impl.DefaultRepositorySecurityManager">
+	<bean id="securityManager" class="org.opentravel.repocommon.security.impl.DefaultRepositorySecurityManager">
 		<constructor-arg ref="repositoryManager" />
 		<constructor-arg ref="authenticationProvider" />
 		<constructor-arg ref="authorizationProvider" />
@@ -68,7 +68,7 @@
 	-->
 	<!--
 	-->
-	<bean id="authenticationProvider" class="org.opentravel.schemacompiler.security.impl.FileAuthenticationProvider">
+	<bean id="authenticationProvider" class="org.opentravel.repocommon.security.impl.FileAuthenticationProvider">
 		<property name="repositoryManager" ref="repositoryManager" />
 	</bean>
 	
@@ -83,7 +83,7 @@
 		server itself.
 	-->
 	<!--
-	<bean id="authenticationProvider" class="org.opentravel.schemacompiler.security.impl.JNDIAuthenticationProvider">
+	<bean id="authenticationProvider" class="org.opentravel.repocommon.security.impl.JNDIAuthenticationProvider">
 		<property name="repositoryManager" ref="repositoryManager" />
 		<property name="connectionUrl" value="ldap://localhost:389/dc=opentravel,dc=com" />
 		<property name="securityAuthentication" value="simple" />
@@ -103,7 +103,7 @@
 		directory and compared with the credentials provided by the remote user of the repository.
 	-->
 	<!--
-	<bean id="authenticationProvider" class="org.opentravel.schemacompiler.security.impl.JNDIAuthenticationProvider">
+	<bean id="authenticationProvider" class="org.opentravel.repocommon.security.impl.JNDIAuthenticationProvider">
 		<property name="repositoryManager" ref="repositoryManager" />
 		<property name="connectionUrl" value="ldap://localhost:389/dc=opentravel,dc=com" />
 		<property name="securityAuthentication" value="simple" />
@@ -123,7 +123,7 @@
 		by a search, the user's credentials are verified by attempting a login to the directory.
 	-->
 	<!--
-	<bean id="authenticationProvider" class="org.opentravel.schemacompiler.security.impl.JNDIAuthenticationProvider">
+	<bean id="authenticationProvider" class="org.opentravel.repocommon.security.impl.JNDIAuthenticationProvider">
 		<property name="repositoryManager" ref="repositoryManager" />
 		<property name="connectionUrl" value="ldap://localhost:389/dc=opentravel,dc=com" />
 		<property name="securityAuthentication" value="simple" />
@@ -140,7 +140,7 @@
 		Provides information about which operations a particular user is authorized to perform on a namespace
 		in the OTA2.0 repository.
 	-->
-	<bean id="authorizationProvider" class="org.opentravel.schemacompiler.security.impl.DefaultAuthorizationProvider">
+	<bean id="authorizationProvider" class="org.opentravel.repocommon.security.impl.DefaultAuthorizationProvider">
 		<constructor-arg ref="repositoryManager" />
 	</bean>
 	
@@ -175,22 +175,33 @@
 		Optional configuration that defines the ActiveMQ connection factory and queues used to communicate with
 		the free-text indexing service.
 	-->
-	<bean id="localAMQConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">
-		<constructor-arg index="0" value="tcp://localhost:61616" />
+	<bean id="localJMSConnectionFactory" class="com.rabbitmq.jms.admin.RMQConnectionFactory">
+		<property name="port" value="{{rabbitmq_port}}" />
 	</bean>
 	
 	<bean id="indexingConnectionFactory" class="org.springframework.jms.connection.CachingConnectionFactory">
-		<property name="targetConnectionFactory" ref="localAMQConnectionFactory" />
+		<property name="targetConnectionFactory" ref="localJMSConnectionFactory" />
 		<property name="sessionCacheSize" value="10" />
 	</bean>
 
-	<bean id="indexingJobQueue" class="org.apache.activemq.command.ActiveMQQueue">
-		<constructor-arg index="0" value="otm.indexing.jobQueue" />
+	<bean id="indexingJobRequestQueue" class="com.rabbitmq.jms.admin.RMQDestination">
+		<property name="destinationName" value="otm.indexing.jobRequestQueue" />
+		<property name="amqp" value="false" />
+		<property name="amqpExchangeName" value="jms.durable.queue" />
+		<property name="amqpRoutingKey" value="otm.indexing.jobRequestQueue" />
+		<property name="amqpQueueName" value="otm.indexing.jobRequestQueue" />
+	</bean>
+
+	<bean id="indexingJobResponseQueue" class="com.rabbitmq.jms.admin.RMQDestination">
+		<property name="destinationName" value="otm.indexing.jobResponseQueue" />
+		<property name="amqp" value="false" />
+		<property name="amqpExchangeName" value="jms.durable.queue" />
+		<property name="amqpRoutingKey" value="otm.indexing.jobResponseQueue" />
+		<property name="amqpQueueName" value="otm.indexing.jobResponseQueue" />
 	</bean>
 
 	<bean id="indexingJmsService" class="org.springframework.jms.core.JmsTemplate">
 		<property name="connectionFactory" ref="indexingConnectionFactory" />
-		<property name="defaultDestination" ref="indexingJobQueue" />
 		<property name="receiveTimeout" value="500" />
 	</bean>
 	
@@ -201,19 +212,20 @@
 		JMS connection factory and queues used to publish notification events.
 	-->
 	<!--
-	<bean id="notificationService" class="org.opentravel.schemacompiler.notification.JMSNotificationService">
+	<bean id="notificationService" class="org.opentravel.reposervice.notification.JMSNotificationService">
 		<constructor-arg ref="notificationJmsService" />
 	</bean>
 	
-    <bean id="destinationManager" class="com.mockrunner.jms.DestinationManager"/>
-    <bean id="configurationManager" class="com.mockrunner.jms.ConfigurationManager"/>
-
-	<bean id="notificationConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">
-		<constructor-arg index="0" value="tcp://localhost:61616" />
-	</bean>
-	
-    <bean id="notificationTopic" factory-bean="destinationManager" factory-method="createTopic">
-        <constructor-arg index="0" value="otm.notification.topic" />
+    <bean id="notificationConnectionFactory" class="com.rabbitmq.jms.admin.RMQConnectionFactory" >
+		<property name="port" value="5672" />
+    </bean>
+    
+    <bean id="notificationTopic" class="com.rabbitmq.jms.admin.RMQDestination">
+		<property name="destinationName" value="otm.notification.topic" />
+		<property name="queue" value="false" />
+		<property name="amqpExchangeName" value="jms.durable.topic" />
+		<property name="amqpRoutingKey" value="otm.notification.topic" />
+		<property name="amqpQueueName" value="otm.notification.topic" />
     </bean>
 
 	<bean id="notificationJmsService" class="org.springframework.jms.core.JmsTemplate">
@@ -229,7 +241,7 @@
 		Configuration settings used for subscriptions and email notifications.
 	-->
 	<!--
-	<bean id="subscriptionManager" class="org.opentravel.schemacompiler.subscription.SubscriptionManager">
+	<bean id="subscriptionManager" class="org.opentravel.repocommon.subscription.SubscriptionManager">
 		<constructor-arg index="0" ref="repositoryManager" />
 		<property name="baseRepositoryUrl" value="http://www.repohostname.com:8181/ota2-repository-service" />
 		<property name="notificationDelay" value="1000" />

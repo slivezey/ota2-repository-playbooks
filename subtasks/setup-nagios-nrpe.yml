@@ -35,13 +35,13 @@
       timeout: 30
     delegate_to: localhost
     
-  - name: Ensure the xinetd service is installed and running (CentOS/RHEL)
+  - name: Ensure the xinetd service is installed and running (RHEL)
     block:
-    - name: Ensure the xinetd package is installed (CentOS/RHEL)
+    - name: Ensure the xinetd package is installed (RHEL)
       package:
         name: xinetd
         state: latest
-    - name: Start the xinetd service (CentOS/RHEL)
+    - name: Start the xinetd service (RHEL)
       service:
         name: xinetd
         enabled: yes
@@ -50,7 +50,7 @@
     - name: Update system facts to reflect xinetd installation
       set_fact:
         xinetd_installed: true
-    when: (os_is_centos or os_is_rhel) and (systemd_installed == false)
+    when: os_is_rhel and (systemd_installed == false)
 
   - name: Upload Nagios-NRPE archive to remote host
     unarchive:
@@ -115,7 +115,7 @@
       state: restarted
     when: xinetd_installed == false
       
-  - name: Restart the xinetd service (CentOS/RHEL)
+  - name: Restart the xinetd service (RHEL)
     service:
       name: xinetd
       enabled: yes

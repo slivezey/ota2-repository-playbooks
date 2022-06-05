@@ -30,5 +30,6 @@
   - import_tasks: subtasks/check-current-user.yml
   
   - import_tasks: subtasks/start-svn.yml
+  - import_tasks: subtasks/start-rabbitmq.yml
   - import_tasks: subtasks/start-indexing.yml
   - import_tasks: subtasks/start-tomcat.yml

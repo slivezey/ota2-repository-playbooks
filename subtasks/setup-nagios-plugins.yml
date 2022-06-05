@@ -53,23 +53,6 @@
         - gettext
       state: latest
     when: os_is_debian or os_is_ubuntu
-  - name: Setup OS-specific configuration (CentOS)
-    package:
-      name:
-        - gcc
-        - glibc
-        - glibc-common
-        - make
-        - gettext
-        - automake
-        - autoconf
-        - wget
-        - openssl-devel
-        - net-snmp
-        - net-snmp-utils
-        - epel-release
-      state: latest
-    when: os_is_centos
   - name: Setup OS-specific configuration (RHEL)
     package:
       name:
