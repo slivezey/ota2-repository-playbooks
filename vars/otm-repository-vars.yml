@@ -21,16 +21,14 @@
 tomcat_archive: apache-tomcat-9.0.63
 tomcat_download_url: "https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.63/bin/{{tomcat_archive}}.zip"
 repo_base_download_url: "https://github.com/OpenTravel/OTM-DE-Compiler/releases/latest/download"
-#repo_service_download_url: "{{repo_base_download_url}}/ota2-repository-service.war"
-#index_service_download_url: "{{repo_base_download_url}}/ota2-indexing-service.zip"
-repo_service_download_url: file:///Users/livezeysm/Software/codebases/OTM-DE-Compiler/ota2-repository-service/target/ota2-repository-service.war
-index_service_download_url: file:///Users/livezeysm/Software/codebases/OTM-DE-Compiler/ota2-indexing-service/target/ota2-indexing-service-5.0-SNAPSHOT-bin.zip
+repo_service_download_url: "{{repo_base_download_url}}/ota2-repository-service.war"
+index_service_download_url: "{{repo_base_download_url}}/ota2-indexing-service.zip"
 
-nagioscore_archive: nagios-4.4.5
+nagioscore_archive: nagios-4.4.7
 nagioscore_download_url: "https://github.com/NagiosEnterprises/nagioscore/releases/download/{{nagioscore_archive}}/{{nagioscore_archive}}.tar.gz"
-nagiosplugins_archive: nagios-plugins-2.3.1
+nagiosplugins_archive: nagios-plugins-2.3.3
 nagiosplugins_download_url: "http://nagios-plugins.org/download/{{nagiosplugins_archive}}.tar.gz"
-nagiosnrpe_archive: nrpe-3.2.1
+nagiosnrpe_archive: nrpe-3.3.0
 nagiosnrpe_download_url: "https://sourceforge.net/projects/nagios/files/nrpe-3.x/{{nagiosnrpe_archive}}.tar.gz"
 jmxplugin_archive: nagios-jmx-plugin
 jmxplugin_download_url: "{{repo_base_download_url}}/{{jmxplugin_archive}}.zip"

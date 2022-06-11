@@ -68,7 +68,6 @@
             - gd-devel
             - perl
             - postfix
-            - java-1.8.0-openjdk-devel
           state: latest
       when: os_is_rhel
     - name: Setup OS-specific configuration (Debian)
@@ -85,7 +84,6 @@
           - php
           - libgd-dev
           - iptables-persistent
-          - openjdk-8-jdk
         state: latest
       when: os_is_debian
     - name: Setup OS-specific configuration (Ubuntu)
@@ -101,9 +99,23 @@
           - php
           - libapache2-mod-php
           - libgd-dev
-          - openjdk-8-jdk
         state: latest
       when: os_is_ubuntu
+    - name: Setup OS-specific configuration (Ubuntu)
+      block:
+      - name: Ensure Java 17 package is available (Ubuntu only)
+        command: "add-apt-repository -y ppa:openjdk-r/ppa"
+        when: os_is_ubuntu
+      - name: Make sure Java 17 is installed (Debian or Ubuntu)
+        package:
+          name: openjdk-17-jdk
+          state: latest
+        when: os_is_debian or os_is_ubuntu
+      - name: Make sure Java 17 is installed (RHEL)
+        package:
+          name: java-17-openjdk
+          state: latest
+        when: os_is_rhel
     - name: Disable SELinux (if necessary)
       selinux:
         state: disabled
@@ -117,10 +129,10 @@
         dest: "/tmp"
     - name: Perform installation (Debian/Ubuntu)
       shell: |
-        ./configure --with-nagios-user={{nagios_user}} --with-nagios-group={{nagios_group}} --with-httpd-conf=/etc/apache2/sites-enabled
+        ./configure --with-nagios-user={{nagios_user}} --with-nagios-group={{nagios_group}} --with-httpd-conf=/etc/apache2/sites-enabled --disable-ssl
         make all
         make install-groups-users
-        usermod -a -G nagios www-data
+        usermod -a -G {{nagios_group}} www-data
         make install
         make install-daemoninit
         make install-commandmode
@@ -134,7 +146,7 @@
       when: os_is_debian or os_is_ubuntu
     - name: Perform installation (RHEL)
       shell: |
-        ./configure --with-nagios-user={{nagios_user}} --with-nagios-group={{nagios_group}}
+        ./configure --with-nagios-user={{nagios_user}} --with-nagios-group={{nagios_group}} --disable-ssl
         make all
         make install-groups-users
         usermod -a -G {{nagios_group}} apache

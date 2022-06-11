@@ -18,6 +18,7 @@
   service:
     name: ota2-tomcat
     state: started
+    enabled: yes
   become: yes
 - name: Wait for server startup to complete
   wait_for:

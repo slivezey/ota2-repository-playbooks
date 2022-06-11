@@ -32,6 +32,7 @@
   service:
     name: svnserve
     state: started
+    enabled: yes
   when: remote_svn_url is undefined and systemd_installed
   become: yes
   

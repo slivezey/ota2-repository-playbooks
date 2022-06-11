@@ -55,4 +55,5 @@
     service:
       name: "{{http_package_name}}"
       state: restarted
+      enabled: yes
     

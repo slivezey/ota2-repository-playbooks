@@ -1,7 +1,7 @@
 [Unit]
 Description=OTM Repository Tomcat Service
 Requires=network.target
-After=syslog.target network.target
+After=syslog.target network.target svnserve.service rabbitmq-server.service
 
 [Service]
 Type=forking

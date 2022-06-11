@@ -59,7 +59,7 @@
   
   - name: Install Nagios-NRPE
     shell: |
-      ./configure --with-nrpe-user={{nagios_user}} --with-nrpe-group={{nagios_group}} --with-nagios-user={{nagios_user}} --with-nagios-group={{nagios_group}} --enable-command-args
+      ./configure --with-nrpe-user={{nagios_user}} --with-nrpe-group={{nagios_group}} --with-nagios-user={{nagios_user}} --with-nagios-group={{nagios_group}} --enable-command-args --disable-ssl
       make all
       make install-groups-users
       make install

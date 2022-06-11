@@ -147,22 +147,27 @@
         command: ./create-nsid.sh
         args:
           chdir: "{{uploads_dir}}"
-      - name: Store the SVN credentials into the user's working directory (root)
-        shell: "svn ls {{svn_url}} --username {{svn_user}} --password {{svn_password}} --config-option='servers:global:store-plaintext-passwords=yes' --config-option='servers:global:store-passwords=yes'"
-        args:
-          warn: false
-      - name: Store the SVN credentials into the user's working directory (otm user)
-        shell: "su -c \"svn ls {{svn_url}} --username {{svn_user}} --password {{svn_password}} --config-option='servers:global:store-plaintext-passwords=yes' --config-option='servers:global:store-passwords=yes'\" {{otm_user}}"
-        args:
-          warn: false
+      - name: Store SVN credentials (RHEL only)
+        block:
+        - name: Store the SVN credentials into the user's working directory (root)
+          shell: "svn ls {{svn_url}} --username {{svn_user}} --password {{svn_password}} --config-option='servers:global:store-plaintext-passwords=yes' --config-option='servers:global:store-passwords=yes'"
+          args:
+            warn: false
+        - name: Store the SVN credentials into the user's working directory (otm user)
+          shell: "su -c \"svn ls {{svn_url}} --username {{svn_user}} --password {{svn_password}} --config-option='servers:global:store-plaintext-passwords=yes' --config-option='servers:global:store-passwords=yes'\" {{otm_user}}"
+          args:
+            warn: false
+        when: os_is_rhel
       - name: Import the initial content into the SVN repository
-        shell: "svn import {{uploads_dir}}/repo_tmp {{svn_url}} -m 'Initial import'"
+        shell: "svn import {{uploads_dir}}/repo_tmp {{svn_url}} --username {{svn_user}} --password {{svn_password}} -m 'Initial import'"
         args:
           warn: false
       - name: Checkout to managed repository location
         subversion:
           repo: "{{svn_url}}"
           dest: "{{otmrepo_dir}}"
+          username: "{{svn_user}}"
+          password: "{{svn_password}}"
       when: svn_status.stat.exists == false
       become: true
       become_user: "{{otm_user}}"
@@ -183,6 +188,8 @@
       - name: Install the Erlang repository (RHEL)
         command: "yum install -y {{uploads_dir}}/erlang-23.2.7-1.el7.x86_64.rpm"
       when: os_is_rhel
+    - name: Assign the node name for the RabbitMQ server
+      shell: "mkdir /etc/rabbitmq; echo 'NODENAME=rabbit@localhost' > /etc/rabbitmq/rabbitmq-env.conf"
     - name: Make sure RabbitMQ is installed
       package:
         name: rabbitmq-server

@@ -1,7 +1,7 @@
 [Unit]
 Description=OTM Repository Indexing Service
 Requires=network.target
-After=syslog.target network.target
+After=syslog.target network.target rabbitmq-server.service
 
 [Service]
 Type=forking
