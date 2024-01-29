@@ -1,0 +1,29 @@
+LoadModule proxy_module /lib/apache2/modules/mod_proxy.so
+LoadModule proxy_http_module /lib/apache2/modules/mod_proxy_http.so
+LoadModule headers_module /lib/apache2/modules/mod_headers.so
+
+<VirtualHost *:80>
+  ServerName 192.168.1.191
+  Redirect permanent / https://192.168.1.191
+</VirtualHost>
+
+<VirtualHost *:443>
+  ServerName 192.168.1.191
+
+  SSLEngine on
+  SSLProxyEngine on
+  SSLCertificateFile /etc/ssl/certs/server.crt
+  SSLCertificateKeyFile /etc/ssl/private/server.key
+
+  ProxyPreserveHost On
+  ProxyPass         /  http://localhost:8080/ nocanon
+  ProxyPassReverse  /  http://localhost:8080/
+  ProxyRequests     Off
+  AllowEncodedSlashes Off
+</VirtualHost>
+
+<Proxy http://localhost:8080*>
+  Header set Access-Control-Allow-Origin "*"
+  Order deny,allow
+  Allow from all
+</Proxy>
