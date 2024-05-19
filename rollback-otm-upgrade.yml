@@ -21,58 +21,52 @@
     - vars/otm-repository-vars.yml
     - "{{inventory_dir}}/host_vars/{{inventory_hostname}}.yml"
   tasks:
-  - import_tasks: subtasks/validate.yml
-  - import_tasks: subtasks/discover-system-facts.yml
+    - import_tasks: subtasks/validate.yml
+    - import_tasks: subtasks/discover-system-facts.yml
 
-  - name: --> Verify installation is running as the otm_user
-    set_fact:
-      require_user: "{{otm_user}}"
-  - import_tasks: subtasks/check-current-user.yml
-  
-  - name: --> Verify existence of rollback archives
-    block:
-    - name: Check for existence of the OTM Repository Web Service rollback archive
-      stat: 
-        path: "{{backups_dir}}/ROOT-rollback.war"
-      register: websvc_archive_status
-    - name: Check for existence of the Indexing Service rollback archive
-      stat: 
-        path: "{{backups_dir}}/indexing-rollback.tar.gz"
-      register: indexing_archive_status
-    - name: Fail if either of the rollback archives does not exist
-      fail:
-        msg: "Unable to Rollback - executable archives from most recent upgrade not found."
-      when: not(websvc_archive_status.stat.exists) or not(indexing_archive_status.stat.exists)
-    
-  - import_tasks: subtasks/shutdown-tomcat.yml
-  - import_tasks: subtasks/shutdown-indexing.yml
+    - name: --> Verify installation is running as the otm_user
+      set_fact:
+        require_user: "{{otm_user}}"
+    - import_tasks: subtasks/check-current-user.yml
 
-  - name: --> Rollback Upgrade of the Indexing Service
-    block:
-    - name: Delete /lib directory from current installation
-      command: "rm -rf {{indexsvc_dir}}/lib"
-      args:
-        warn: false
-    - name: Replace indexing libraries with files from most recent archive
-      unarchive:
-        src: "{{backups_dir}}/indexing-rollback.tar.gz"
-        dest: "{{indexsvc_dir}}"
-        remote_src: yes
+    - name: --> Verify existence of rollback archives
+      block:
+        - name: Check for existence of the OTM Repository Web Service rollback archive
+          stat:
+            path: "{{backups_dir}}/ROOT-rollback.war"
+          register: websvc_archive_status
+        - name: Check for existence of the Indexing Service rollback archive
+          stat:
+            path: "{{backups_dir}}/indexing-rollback.tar.gz"
+          register: indexing_archive_status
+        - name: Fail if either of the rollback archives does not exist
+          fail:
+            msg: "Unable to Rollback - executable archives from most recent upgrade not found."
+          when: not(websvc_archive_status.stat.exists) or not(indexing_archive_status.stat.exists)
 
-  - name: --> Rollback Upgrade of the Tomcat web service
-    block:
-    - name: Delete the OTM Repository Web Service appplication from the current installation
-      command: "rm -rf {{item}}"
-      args:
-        warn: false
-      with_items:
-        - "{{tomcat_dir}}/webapps/ROOT.war"
-        - "{{tomcat_dir}}/webapps/ROOT"
-        - "{{tomcat_dir}}/work/Catalina/localhost/ROOT"
-    - name: Install the updated OTA2 Repository Web Service application
-      command: "mv {{backups_dir}}/ROOT-rollback.war {{tomcat_dir}}/webapps/ROOT.war"
-      args:
-        warn: false
+    - import_tasks: subtasks/shutdown-tomcat.yml
+    - import_tasks: subtasks/shutdown-indexing.yml
 
-  - import_tasks: subtasks/start-indexing.yml
-  - import_tasks: subtasks/start-tomcat.yml
+    - name: --> Rollback Upgrade of the Indexing Service
+      block:
+        - name: Delete /lib directory from current installation
+          command: "rm -rf {{indexsvc_dir}}/lib"
+        - name: Replace indexing libraries with files from most recent archive
+          unarchive:
+            src: "{{backups_dir}}/indexing-rollback.tar.gz"
+            dest: "{{indexsvc_dir}}"
+            remote_src: yes
+
+    - name: --> Rollback Upgrade of the Tomcat web service
+      block:
+        - name: Delete the OTM Repository Web Service appplication from the current installation
+          command: "rm -rf {{item}}"
+          with_items:
+            - "{{tomcat_dir}}/webapps/ROOT.war"
+            - "{{tomcat_dir}}/webapps/ROOT"
+            - "{{tomcat_dir}}/work/Catalina/localhost/ROOT"
+        - name: Install the updated OTA2 Repository Web Service application
+          command: "mv {{backups_dir}}/ROOT-rollback.war {{tomcat_dir}}/webapps/ROOT.war"
+
+    - import_tasks: subtasks/start-indexing.yml
+    - import_tasks: subtasks/start-tomcat.yml

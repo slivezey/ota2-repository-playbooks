@@ -21,52 +21,301 @@
     - vars/otm-repository-vars.yml
     - "{{inventory_dir}}/host_vars/{{inventory_hostname}}.yml"
   tasks:
-  - import_tasks: subtasks/validate.yml
-  - import_tasks: subtasks/verify-otm-user.yml
-  - import_tasks: subtasks/verify-nagios-user.yml
-  - import_tasks: subtasks/discover-system-facts.yml
-  
-  - name: --> Verify installation is running as root user
-    set_fact:
-      require_user: root
-  - import_tasks: subtasks/check-current-user.yml
-  
-  - name: --> Download Artifacts to Controller
-    block:
-    - name: Creating local temp directory
-      file:
-        path: "{{controller_temp_dir}}"
-        state: directory
-      delegate_to: localhost
-    - name: Download artifacts that will need to be uploaded later
-      get_url:
-        url: "{{item.url}}"
-        dest: "{{controller_temp_dir}}/{{item.file}}"
-        validate_certs: false
-        timeout: 30
-      with_items:
-        - { url: "{{tomcat_download_url}}", file: "{{tomcat_archive}}.zip" }
-        - { url: "{{repo_service_download_url}}", file: "ROOT.war" }
-        - { url: "{{index_service_download_url}}", file: "ota2-indexing-service.zip" }
-        - { url: "{{nagiosplugins_download_url}}", file: "{{nagiosplugins_archive}}.tar.gz" }
-        - { url: "{{nagiosnrpe_download_url}}", file: "{{nagiosnrpe_archive}}.tar.gz" }
-      delegate_to: localhost
-  
-  - name: --> Create Base Folder Structure
-    block:
-    - name: Creating missing folders
-      file:
-        path: "{{item}}"
-        state: directory
-      with_items:
-        - "{{base_dir}}"
-        - "{{indexsvc_dir}}"
-        - "{{svnrepo_dir}}"
-        - "{{searchindex_dir}}"
-        - "{{backups_dir}}"
-        - "{{uploads_dir}}"
-        - "{{uploads_dir}}/repo_tmp"
-    - name: Change folder ownership to the OTM user
+    - import_tasks: subtasks/validate.yml
+    - import_tasks: subtasks/verify-otm-user.yml
+    - import_tasks: subtasks/verify-nagios-user.yml
+    - import_tasks: subtasks/discover-system-facts.yml
+
+    - name: --> Verify installation is running as root user
+      set_fact:
+        require_user: root
+    - import_tasks: subtasks/check-current-user.yml
+
+    - name: --> Download Artifacts to Controller
+      block:
+        - name: Creating local temp directory
+          file:
+            path: "{{controller_temp_dir}}"
+            state: directory
+          delegate_to: localhost
+        - name: Download artifacts that will need to be uploaded later
+          get_url:
+            url: "{{item.url}}"
+            dest: "{{controller_temp_dir}}/{{item.file}}"
+            validate_certs: false
+            timeout: 30
+          with_items:
+            - { url: "{{tomcat_download_url}}", file: "{{tomcat_archive}}.zip" }
+            - { url: "{{repo_service_download_url}}", file: "ROOT.war" }
+            - {
+                url: "{{index_service_download_url}}",
+                file: "ota2-indexing-service.zip",
+              }
+            - {
+                url: "{{nagiosplugins_download_url}}",
+                file: "{{nagiosplugins_archive}}.tar.gz",
+              }
+            - {
+                url: "{{nagiosnrpe_download_url}}",
+                file: "{{nagiosnrpe_archive}}.tar.gz",
+              }
+          delegate_to: localhost
+
+    - name: --> Create Base Folder Structure
+      block:
+        - name: Creating missing folders
+          file:
+            path: "{{item}}"
+            state: directory
+          with_items:
+            - "{{base_dir}}"
+            - "{{indexsvc_dir}}"
+            - "{{svnrepo_dir}}"
+            - "{{searchindex_dir}}"
+            - "{{backups_dir}}"
+            - "{{uploads_dir}}"
+            - "{{uploads_dir}}/repo_tmp"
+        - name: Change folder ownership to the OTM user
+          file:
+            path: "{{item}}"
+            state: directory
+            recurse: yes
+            owner: "{{otm_user}}"
+            group: "{{otm_group}}"
+          with_items:
+            - "{{base_dir}}"
+            - "{{indexsvc_dir}}"
+            - "{{svnrepo_dir}}"
+            - "{{searchindex_dir}}"
+            - "{{backups_dir}}"
+            - "{{uploads_dir}}"
+
+    - name: --> Check for Existence of Major Components
+      block:
+        - name: Check for Java 17 installation
+          shell: "java -version 2>&1 >/dev/null | grep 'java version' | awk '{print $3}'"
+          register: java_status
+        - name: Check for existing SVN repository checkout
+          stat:
+            path: "{{otmrepo_dir}}/.svn"
+          register: svn_status
+        - name: Check for RabbitMQ installation
+          stat:
+            path: "/usr/sbin/rabbitmq-server"
+          register: rabbitmq_status
+        - name: Check for existing Tomcat OTM repository configuration
+          stat:
+            path: "{{tomcat_dir}}/conf/ota2-repository-config.xml"
+          register: tomcat_status
+        - name: Check for existing Indexing Service configuration
+          stat:
+            path: "{{indexsvc_dir}}/conf/indexing-service.properties"
+          register: indexing_status
+        - name: Check for existence of the Nagios plugins
+          stat:
+            path: "/usr/local/nagios"
+          register: nagios_status
+
+    - debug:
+        msg: The Subversion repository appears to already be created (skipping)
+      when: svn_status.stat.exists == true
+    - name: --> Install and Configure SVN Server
+      block:
+        - name: Install Subversion package
+          package:
+            name: subversion
+            state: latest
+          when: remote_svn_url is undefined
+        - name: Disable SELinux (if necessary)
+          selinux:
+            state: disabled
+          when: selinux_installed
+        - name: Install and configure local SVN repository
+          block:
+            - import_tasks: subtasks/init-svn-repository.yml
+            - name: Determine the Subversion URL to use in subsequent tasks
+              set_fact:
+                svn_url: "{{ remote_svn_url if remote_svn_url is defined else 'svn://localhost:{{svn_port}}'}}"
+            - name: Copy the initial OTM repository content
+              template:
+                src: "templates/otm-repo/{{item.src}}"
+                dest: "{{uploads_dir}}/repo_tmp/{{item.dest}}"
+              with_items:
+                - { src: auth.j2, dest: auth.xml }
+                - { src: group-assignments.j2, dest: group-assignments.xml }
+                - { src: repository-metadata.j2, dest: repository-metadata.xml }
+                - { src: repository-users.j2, dest: repository-users.xml }
+            - name: Copy the script that will create the initial root namespace
+              template:
+                src: "templates/otm-repo/{{item.src}}"
+                dest: "{{uploads_dir}}/{{item.dest}}"
+                mode: 0754
+              with_items:
+                - { src: create-nsid.j2, dest: create-nsid.sh }
+            - name: Execute the script to create the initial root namespace
+              command: ./create-nsid.sh
+              args:
+                chdir: "{{uploads_dir}}"
+            - name: Store SVN credentials (RHEL only)
+              block:
+                - name: Store the SVN credentials into the user's working directory (root)
+                  shell: "svn ls {{svn_url}} --username {{svn_user}} --password {{svn_password}} --config-option='servers:global:store-plaintext-passwords=yes' --config-option='servers:global:store-passwords=yes'"
+                - name: Store the SVN credentials into the user's working directory (otm user)
+                  shell: 'su -c "svn ls {{svn_url}} --username {{svn_user}} --password {{svn_password}} --config-option=''servers:global:store-plaintext-passwords=yes'' --config-option=''servers:global:store-passwords=yes''" {{otm_user}}'
+              when: os_is_rhel
+            - name: Import the initial content into the SVN repository
+              command: "svn import {{uploads_dir}}/repo_tmp {{svn_url}} --username {{svn_user}} --password {{svn_password}} --non-interactive -m Initial_import"
+            - name: Checkout to managed repository location
+              subversion:
+                repo: "{{svn_url}}"
+                dest: "{{otmrepo_dir}}"
+                username: "{{svn_user}}"
+                password: "{{svn_password}}"
+          when: svn_status.stat.exists == false
+          become: true
+          become_user: "{{otm_user}}"
+
+    - debug:
+        msg: RabbitMQ appears to already be installed (skipping)
+      when: rabbitmq_status.stat.exists == true
+    - name: --> Install and Configure RabbitMQ Server
+      block:
+        - name: Install package manager repositories for Erlang and RabbitMQ (RHEL)
+          block:
+            - name: Download and install the RabbitMQ repository (RHEL)
+              shell: "curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | bash"
+            - name: Download Erlang repository (RHEL)
+              command: "wget https://github.com/rabbitmq/erlang-rpm/releases/download/v23.2.7/erlang-23.2.7-1.el7.x86_64.rpm"
+              args:
+                chdir: "{{uploads_dir}}"
+            - name: Install the Erlang repository (RHEL)
+              command: "yum install -y {{uploads_dir}}/erlang-23.2.7-1.el7.x86_64.rpm"
+          when: os_is_rhel
+        - name: Assign the node name for the RabbitMQ server
+          shell: "mkdir /etc/rabbitmq; echo 'NODENAME=rabbit@localhost' > /etc/rabbitmq/rabbitmq-env.conf"
+        - name: Make sure RabbitMQ is installed
+          package:
+            name: rabbitmq-server
+            state: latest
+      when: rabbitmq_status.stat.exists == false
+
+    - debug:
+        msg: The Tomcat server appears to already be created (skipping)
+      when: tomcat_status.stat.exists == true
+    - name: --> Install and Configure Tomcat Server
+      block:
+        - block:
+            - name: Ensure Java 17 package is available (Ubuntu only)
+              command: "add-apt-repository -y ppa:openjdk-r/ppa"
+              when: os_is_ubuntu
+            - name: Make sure Java 17 is installed (Debian or Ubuntu)
+              package:
+                name: openjdk-17-jdk
+                state: latest
+              when: os_is_debian or os_is_ubuntu
+            - name: Make sure Java 17 is installed (RHEL)
+              package:
+                name: java-17-openjdk
+                state: latest
+              when: os_is_rhel
+          when: java_status.stdout is not search("17")
+        - name: Make sure zip is installed
+          package:
+            name: zip
+            state: latest
+        - name: Upload Tomcat distribution to remote host
+          unarchive:
+            src: "{{controller_temp_dir}}/{{tomcat_archive}}.zip"
+            dest: "{{base_dir}}"
+        - name: Create version-independent symlink
+          file:
+            src: "{{base_dir}}/{{tomcat_archive}}"
+            dest: "{{tomcat_dir}}"
+            state: link
+        - name: Create setenv.sh file to enable remote monitoring via JMX
+          template:
+            src: "templates/otm-config/setenv.j2"
+            dest: "{{tomcat_dir}}/bin/setenv.sh"
+        - name: Modify shell script permissions to allow execution
+          shell: "chmod 754 {{tomcat_dir}}/bin/*.sh"
+        - name: Remove pre-installed web applications
+          shell: "rm -rf *"
+          args:
+            chdir: "{{tomcat_dir}}/webapps"
+        - name: Change default tomcat port (if necessary)
+          xml:
+            path: "{{tomcat_dir}}/conf/server.xml"
+            xpath: /Server/Service/Connector
+            attribute: port
+            value: "{{tomcat_port}}"
+          when: tomcat_port != "8080"
+        - name: Copy OTM repository configuration files
+          template:
+            src: "templates/otm-config/{{item.src}}"
+            dest: "{{tomcat_dir}}/conf/{{item.dest}}"
+          with_items:
+            - {
+                src: ota2-repository-config.j2,
+                dest: ota2-repository-config.xml,
+              }
+            - { src: svnCredentials.j2, dest: svnCredentials.properties }
+        - name: Install the OTA2 Repository Web Service application
+          copy:
+            src: "{{controller_temp_dir}}/ROOT.war"
+            dest: "{{tomcat_dir}}/webapps/ROOT.war"
+        - name: Install the OTM Repository tomcat systemd service
+          template:
+            src: "templates/otm-config/ota2-tomcat-systemd.j2"
+            dest: "/lib/systemd/system/ota2-tomcat.service"
+            mode: 0644
+          when: systemd_installed
+        - name: Install the OTM Repository tomcat init.d service
+          template:
+            src: "templates/otm-config/ota2-tomcat-initd.j2"
+            dest: "/etc/init.d/ota2-tomcat"
+            mode: 0755
+          when: initd_installed
+      when: tomcat_status.stat.exists == false
+
+    - debug:
+        msg: The Indexing Service appears to already be created (skipping)
+      when: indexing_status.stat.exists == true
+    - name: --> Install and Configure the Indexing Service
+      block:
+        - name: Upload ota2-indexing-service to remote host
+          unarchive:
+            src: "{{controller_temp_dir}}/ota2-indexing-service.zip"
+            dest: "{{indexsvc_dir}}/.."
+        - name: Copy ota2-indexing-service startup script
+          template:
+            src: "templates/indexing-config/{{item.src}}"
+            dest: "{{indexsvc_dir}}/{{item.dest}}"
+            mode: 0755
+          with_items:
+            - { src: startup.j2, dest: startup.sh }
+        - name: Copy ota2-indexing-service configuration files
+          template:
+            src: "templates/indexing-config/{{item.src}}"
+            dest: "{{indexsvc_dir}}/conf/{{item.dest}}"
+          with_items:
+            - { src: indexing-service.j2, dest: indexing-service.properties }
+            - { src: log4j2-manager.j2, dest: log4j2-manager.properties }
+            - { src: log4j2-agent.j2, dest: log4j2-agent.properties }
+        - name: Install the ota2-indexing systemd service
+          template:
+            src: "templates/indexing-config/ota2-indexing-systemd.j2"
+            dest: "/lib/systemd/system/ota2-indexing.service"
+            mode: 0644
+          when: systemd_installed
+        - name: Install the ota2-indexing init.d service
+          template:
+            src: "templates/indexing-config/ota2-indexing-initd.j2"
+            dest: "/etc/init.d/ota2-indexing"
+            mode: 0755
+          when: initd_installed
+      when: indexing_status.stat.exists == false
+
+    - name: Change ownership of all installed components to the OTM user
       file:
         path: "{{item}}"
         state: directory
@@ -75,273 +324,31 @@
         group: "{{otm_group}}"
       with_items:
         - "{{base_dir}}"
-        - "{{indexsvc_dir}}"
+        - "{{tomcat_dir}}"
+        - "{{otmrepo_dir}}"
         - "{{svnrepo_dir}}"
+        - "{{indexsvc_dir}}"
         - "{{searchindex_dir}}"
-        - "{{backups_dir}}"
-        - "{{uploads_dir}}"
 
-  - name: --> Check for Existence of Major Components
-    block:
-    - name: Check for Java 17 installation
-      shell: "java -version 2>&1 >/dev/null | grep 'java version' | awk '{print $3}'"
-      register: java_status
-    - name: Check for existing SVN repository checkout
-      stat: 
-        path: "{{otmrepo_dir}}/.svn"
-      register: svn_status
-    - name: Check for RabbitMQ installation
-      stat: 
-        path: "/usr/sbin/rabbitmq-server"
-      register: rabbitmq_status
-    - name: Check for existing Tomcat OTM repository configuration
-      stat: 
-        path: "{{tomcat_dir}}/conf/ota2-repository-config.xml"
-      register: tomcat_status
-    - name: Check for existing Indexing Service configuration
-      stat: 
-        path: "{{indexsvc_dir}}/conf/indexing-service.properties"
-      register: indexing_status
-    - name: Check for existence of the Nagios plugins
-      stat: 
-        path: "/usr/local/nagios"
-      register: nagios_status
+    - import_tasks: subtasks/setup-httpd-proxy.yml
 
-  - debug:
-      msg: The Subversion repository appears to already be created (skipping)
-    when: svn_status.stat.exists == true
-  - name: --> Install and Configure SVN Server
-    block:
-    - name: Install Subversion package
-      package:
-        name: subversion
-        state: latest
-      when: remote_svn_url is undefined
-    - name: Disable SELinux (if necessary)
-      selinux:
-        state: disabled
-      when: selinux_installed
-    - name: Install and configure local SVN repository
-      block:
-      - import_tasks: subtasks/init-svn-repository.yml
-      - name: Determine the Subversion URL to use in subsequent tasks
-        set_fact:
-          svn_url: "{{ remote_svn_url if remote_svn_url is defined else 'svn://localhost:{{svn_port}}'}}"
-      - name: Copy the initial OTM repository content
-        template:
-          src: "templates/otm-repo/{{item.src}}"
-          dest: "{{uploads_dir}}/repo_tmp/{{item.dest}}"
-        with_items:
-        - { src: auth.j2, dest: auth.xml }
-        - { src: group-assignments.j2, dest: group-assignments.xml }
-        - { src: repository-metadata.j2, dest: repository-metadata.xml }
-        - { src: repository-users.j2, dest: repository-users.xml }
-      - name: Copy the script that will create the initial root namespace
-        template:
-          src: "templates/otm-repo/{{item.src}}"
-          dest: "{{uploads_dir}}/{{item.dest}}"
-          mode: 0754
-        with_items:
-        - { src: create-nsid.j2, dest: create-nsid.sh }
-      - name: Execute the script to create the initial root namespace
-        command: ./create-nsid.sh
-        args:
-          chdir: "{{uploads_dir}}"
-      - name: Store SVN credentials (RHEL only)
-        block:
-        - name: Store the SVN credentials into the user's working directory (root)
-          shell: "svn ls {{svn_url}} --username {{svn_user}} --password {{svn_password}} --config-option='servers:global:store-plaintext-passwords=yes' --config-option='servers:global:store-passwords=yes'"
-          args:
-            warn: false
-        - name: Store the SVN credentials into the user's working directory (otm user)
-          shell: "su -c \"svn ls {{svn_url}} --username {{svn_user}} --password {{svn_password}} --config-option='servers:global:store-plaintext-passwords=yes' --config-option='servers:global:store-passwords=yes'\" {{otm_user}}"
-          args:
-            warn: false
-        when: os_is_rhel
-      - name: Import the initial content into the SVN repository
-        shell: "svn import {{uploads_dir}}/repo_tmp {{svn_url}} --username {{svn_user}} --password {{svn_password}} -m 'Initial import'"
-        args:
-          warn: false
-      - name: Checkout to managed repository location
-        subversion:
-          repo: "{{svn_url}}"
-          dest: "{{otmrepo_dir}}"
-          username: "{{svn_user}}"
-          password: "{{svn_password}}"
-      when: svn_status.stat.exists == false
-      become: true
-      become_user: "{{otm_user}}"
-
-  - debug:
-      msg: RabbitMQ appears to already be installed (skipping)
-    when: rabbitmq_status.stat.exists == true
-  - name: --> Install and Configure RabbitMQ Server
-    block:
-    - name: Install package manager repositories for Erlang and RabbitMQ (RHEL)
-      block:
-      - name: Download and install the RabbitMQ repository (RHEL)
-        shell: "curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | bash"
-      - name: Download Erlang repository (RHEL)
-        command: "wget https://github.com/rabbitmq/erlang-rpm/releases/download/v23.2.7/erlang-23.2.7-1.el7.x86_64.rpm"
-        args:
-          chdir: "{{uploads_dir}}"
-      - name: Install the Erlang repository (RHEL)
-        command: "yum install -y {{uploads_dir}}/erlang-23.2.7-1.el7.x86_64.rpm"
-      when: os_is_rhel
-    - name: Assign the node name for the RabbitMQ server
-      shell: "mkdir /etc/rabbitmq; echo 'NODENAME=rabbit@localhost' > /etc/rabbitmq/rabbitmq-env.conf"
-    - name: Make sure RabbitMQ is installed
-      package:
-        name: rabbitmq-server
-        state: latest
-    when: rabbitmq_status.stat.exists == false
-  
-  - debug:
-      msg: The Tomcat server appears to already be created (skipping)
-    when: tomcat_status.stat.exists == true
-  - name: --> Install and Configure Tomcat Server
-    block:
-    - block:
-      - name: Ensure Java 17 package is available (Ubuntu only)
-        command: "add-apt-repository -y ppa:openjdk-r/ppa"
-        when: os_is_ubuntu
-      - name: Make sure Java 17 is installed (Debian or Ubuntu)
-        package:
-          name: openjdk-17-jdk
-          state: latest
-        when: os_is_debian or os_is_ubuntu
-      - name: Make sure Java 17 is installed (RHEL)
-        package:
-          name: java-17-openjdk
-          state: latest
-        when: os_is_rhel
-      when: java_status.stdout is not search("17")
-    - name: Upload Tomcat distribution to remote host
-      unarchive:
-        src: "{{controller_temp_dir}}/{{tomcat_archive}}.zip"
-        dest: "{{base_dir}}"
-    - name: Create version-independent symlink
-      file:
-        src: "{{base_dir}}/{{tomcat_archive}}"
-        dest: "{{tomcat_dir}}"
-        state: link
-    - name: Create setenv.sh file to enable remote monitoring via JMX
-      template:
-        src: "templates/otm-config/setenv.j2"
-        dest: "{{tomcat_dir}}/bin/setenv.sh"
-    - name: Modify shell script permissions to allow execution
-      shell: "chmod 754 {{tomcat_dir}}/bin/*.sh"
-      args:
-        warn: false
-    - name: Remove pre-installed web applications
-      shell: "rm -rf *"
-      args:
-        chdir: "{{tomcat_dir}}/webapps"
-        warn: false
-    - name: Change default tomcat port (if necessary)
-      xml:
-        path: "{{tomcat_dir}}/conf/server.xml"
-        xpath: /Server/Service/Connector
-        attribute: port
-        value: "{{tomcat_port}}"
-      when: tomcat_port != "8080"
-    - name: Copy OTM repository configuration files
-      template:
-        src: "templates/otm-config/{{item.src}}"
-        dest: "{{tomcat_dir}}/conf/{{item.dest}}"
-      with_items:
-      - { src: ota2-repository-config.j2, dest: ota2-repository-config.xml }
-      - { src: svnCredentials.j2, dest: svnCredentials.properties }
-    - name: Install the OTA2 Repository Web Service application
-      copy:
-        src: "{{controller_temp_dir}}/ROOT.war"
-        dest: "{{tomcat_dir}}/webapps/ROOT.war"
-    - name: Install the OTM Repository tomcat systemd service
-      template:
-        src: "templates/otm-config/ota2-tomcat-systemd.j2"
-        dest: "/lib/systemd/system/ota2-tomcat.service"
-        mode: 0644
-      when: systemd_installed
-    - name: Install the OTM Repository tomcat init.d service
-      template:
-        src: "templates/otm-config/ota2-tomcat-initd.j2"
-        dest: "/etc/init.d/ota2-tomcat"
-        mode: 0755
-      when: initd_installed
-    when: tomcat_status.stat.exists == false
-    
-  - debug:
-      msg: The Indexing Service appears to already be created (skipping)
-    when: indexing_status.stat.exists == true
-  - name: --> Install and Configure the Indexing Service
-    block:
-    - name: Upload ota2-indexing-service to remote host
-      unarchive:
-        src: "{{controller_temp_dir}}/ota2-indexing-service.zip"
-        dest: "{{indexsvc_dir}}/.."
-    - name: Copy ota2-indexing-service startup script
-      template:
-        src: "templates/indexing-config/{{item.src}}"
-        dest: "{{indexsvc_dir}}/{{item.dest}}"
-        mode: 0755
-      with_items:
-      - { src: startup.j2, dest: startup.sh }
-    - name: Copy ota2-indexing-service configuration files
-      template:
-        src: "templates/indexing-config/{{item.src}}"
-        dest: "{{indexsvc_dir}}/conf/{{item.dest}}"
-      with_items:
-      - { src: indexing-service.j2, dest: indexing-service.properties }
-      - { src: log4j2-manager.j2, dest: log4j2-manager.properties }
-      - { src: log4j2-agent.j2, dest: log4j2-agent.properties }
-    - name: Install the ota2-indexing systemd service
-      template:
-        src: "templates/indexing-config/ota2-indexing-systemd.j2"
-        dest: "/lib/systemd/system/ota2-indexing.service"
-        mode: 0644
-      when: systemd_installed
     - name: Install the ota2-indexing init.d service
       template:
-        src: "templates/indexing-config/ota2-indexing-initd.j2"
-        dest: "/etc/init.d/ota2-indexing"
-        mode: 0755
-      when: initd_installed
-    when: indexing_status.stat.exists == false
-    
-  - name: Change ownership of all installed components to the OTM user
-    file:
-      path: "{{item}}"
-      state: directory
-      recurse: yes
-      owner: "{{otm_user}}"
-      group: "{{otm_group}}"
-    with_items:
-      - "{{base_dir}}"
-      - "{{tomcat_dir}}"
-      - "{{otmrepo_dir}}"
-      - "{{svnrepo_dir}}"
-      - "{{indexsvc_dir}}"
-      - "{{searchindex_dir}}"
-        
-  - import_tasks: subtasks/setup-httpd-proxy.yml
-  
-  - name: Install the ota2-indexing init.d service
-    template:
-      src: "templates/otm-config/otmsudoers.j2"
-      dest: "/etc/sudoers.d/otmsudoers"
-      mode: 0750
-    when: systemd_installed
-      
-  - debug:
-      msg: Nagios plugins appear to already be installed (skipping)
-    when: nagios_status.stat.exists == true
-  - name: --> Install the Nagios-Plugins Service
-    block:
-    - import_tasks: subtasks/setup-nagios-plugins.yml
-    - import_tasks: subtasks/setup-nagios-nrpe.yml
-    when: nagios_status.stat.exists == false
-    
-  - import_tasks: subtasks/start-rabbitmq.yml
-  - import_tasks: subtasks/start-indexing.yml
-  - import_tasks: subtasks/start-tomcat.yml
-  - import_tasks: subtasks/cleanup.yml
+        src: "templates/otm-config/otmsudoers.j2"
+        dest: "/etc/sudoers.d/otmsudoers"
+        mode: 0750
+      when: systemd_installed
+
+    - debug:
+        msg: Nagios plugins appear to already be installed (skipping)
+      when: nagios_status.stat.exists == true
+    - name: --> Install the Nagios-Plugins Service
+      block:
+        - import_tasks: subtasks/setup-nagios-plugins.yml
+        - import_tasks: subtasks/setup-nagios-nrpe.yml
+      when: nagios_status.stat.exists == false
+
+    - import_tasks: subtasks/start-rabbitmq.yml
+    - import_tasks: subtasks/start-indexing.yml
+    - import_tasks: subtasks/start-tomcat.yml
+    - import_tasks: subtasks/cleanup.yml

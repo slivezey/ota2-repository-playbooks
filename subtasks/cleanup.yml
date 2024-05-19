@@ -16,14 +16,12 @@
 #
 - name: --> Cleanup Temporary Files
   block:
-  - name: Cleanup remote host files
-    shell: "rm -rf *"
-    args:
-      chdir: "{{uploads_dir}}"
-      warn: false
-  - name: Cleaning up local temp directory
-    shell: "rm -rf *"
-    args:
-      chdir: "{{controller_temp_dir}}"
-      warn: false
-    delegate_to: localhost
+    - name: Cleanup remote host files
+      shell: "rm -rf *"
+      args:
+        chdir: "{{uploads_dir}}"
+    - name: Cleaning up local temp directory
+      shell: "rm -rf *"
+      args:
+        chdir: "{{controller_temp_dir}}"
+      delegate_to: localhost
